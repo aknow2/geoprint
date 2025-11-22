@@ -1,73 +1,65 @@
-# React + TypeScript + Vite
+# GeoPrint
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**GeoPrint** is a web application that allows users to select a geographical area on a map, generate a 3D terraced terrain model, and export it as an STL file for 3D printing.
 
-Currently, two official plugins are available:
+[**View Demo**](https://aknow2.github.io/geoprint/)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+- **Map Selection**: Interactively select a rectangular area on a map using MapTiler.
+- **3D Terrain Generation**: Automatically fetches elevation data and generates a 3D mesh.
+- **Customization**: Adjust base height, vertical scale, and smoothing.
+- **Building & Road Integration**: Optionally include 3D buildings and roads in the model.
+- **STL Export**: Download the generated 3D model as an STL file ready for slicing and printing.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Development
 
-## Expanding the ESLint configuration
+### Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js (v20 or later recommended)
+- npm
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Setup
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/aknow2/geoprint.git
+    cd geoprint
+    ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+
+3.  Set up Environment Variables:
+    Create a `.env` file in the root directory and add your MapTiler API key:
+    ```env
+    VITE_MAPTILER_KEY=your_maptiler_api_key_here
+    ```
+
+### Running Locally
+
+Start the development server:
+
+```bash
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Build
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+To build the application for production:
+
+```bash
+npm run build
 ```
+
+The build artifacts will be stored in the `dist/` directory.
+
+## Deployment
+
+This project is configured to automatically deploy to GitHub Pages via GitHub Actions when changes are pushed to the `main` branch.
+
+Ensure you have set the `VITE_MAPTILER_KEY` in your GitHub Repository Secrets for the build to succeed.
