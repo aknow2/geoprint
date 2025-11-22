@@ -10,12 +10,14 @@ export const generateTerrainGeometry = (
     baseHeight?: number; // Base thickness in meters
     verticalScale?: number; // Exaggerate height
     maxHeight?: number; // Clamp max height relative to min
+    smoothing?: number; // Smoothing iterations
   } = {}
 ): THREE.BufferGeometry => {
   const {
     baseHeight = 2,
     verticalScale = 1.0,
-    maxHeight = Infinity
+    maxHeight = Infinity,
+    smoothing = 0
   } = options;
   
   // Calculate bounds in meters (relative to center)
@@ -103,6 +105,38 @@ export const generateTerrainGeometry = (
       
       elevations[iy * gridX + ix] = adjustedElevation;
     }
+  }
+
+  // Apply smoothing (Box Blur)
+  if (smoothing > 0) {
+      const tempElevations = new Float32Array(elevations.length);
+      
+      for (let iter = 0; iter < smoothing; iter++) {
+          // Copy current state to temp to read from
+          tempElevations.set(elevations);
+          
+          for (let iy = 0; iy < gridY; iy++) {
+              for (let ix = 0; ix < gridX; ix++) {
+                  let sum = 0;
+                  let count = 0;
+                  
+                  // 3x3 Kernel
+                  for (let ky = -1; ky <= 1; ky++) {
+                      const ny = iy + ky;
+                      if (ny >= 0 && ny < gridY) {
+                          for (let kx = -1; kx <= 1; kx++) {
+                              const nx = ix + kx;
+                              if (nx >= 0 && nx < gridX) {
+                                  sum += tempElevations[ny * gridX + nx];
+                                  count++;
+                              }
+                          }
+                      }
+                  }
+                  elevations[iy * gridX + ix] = sum / count;
+              }
+          }
+      }
   }
 
   // Build Custom Geometry (Solid Block)
@@ -361,7 +395,7 @@ export const createBuildingGeometries = (
 export const createRoadGeometries = (
   roads: RoadFeature[],
   terrainGeometry: THREE.BufferGeometry,
-  options: { verticalScale?: number } = {}
+  options: { widthScale?: number } = {}
 ): THREE.Group => {
   const group = new THREE.Group();
   const gridData = terrainGeometry.userData.grid;
@@ -371,14 +405,13 @@ export const createRoadGeometries = (
       return group;
   }
 
-  const { elevations, minX, maxX, minY, maxY, gridX, gridY, verticalScale: terrainVerticalScale } = gridData;
+  const { elevations, minX, maxX, minY, maxY, gridX, gridY } = gridData;
   const rangeX = maxX - minX;
   const rangeY = maxY - minY;
   
-  // Use provided vertical scale or fallback
-  const roadVerticalScale = options.verticalScale !== undefined ? options.verticalScale : terrainVerticalScale;
+  const widthScale = options.widthScale !== undefined ? options.widthScale : 1.0;
 
-  console.log(`Generating geometry for ${roads.length} roads.`);
+  console.log(`Generating geometry for ${roads.length} roads. Width Scale: ${widthScale}`);
 
   const getElevation = (x: number, y: number): number | null => {
       const ix = Math.floor((x - minX) / rangeX * (gridX - 1));
@@ -407,7 +440,8 @@ export const createRoadGeometries = (
           ? road.geometry.coordinates 
           : [road.geometry.coordinates];
 
-      const width = roadWidths[road.class] || 1;
+      const baseWidth = roadWidths[road.class] || 1;
+      const width = baseWidth * widthScale;
       const radius = (width / 2) * 1.5; // Slightly wider for visibility
 
       lines.forEach((lineCoords: any) => {

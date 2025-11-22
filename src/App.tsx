@@ -28,6 +28,8 @@ function App() {
   const [baseHeight, setBaseHeight] = useState(2);
   const [verticalScale, setVerticalScale] = useState(1.5);
   const [buildingVerticalScale, setBuildingVerticalScale] = useState(1.5);
+  const [roadScale, setRoadScale] = useState(1.0);
+  const [smoothing, setSmoothing] = useState(0);
   const [maxHeight, setMaxHeight] = useState(200);
   const [isUnlimitedHeight, setIsUnlimitedHeight] = useState(false);
   
@@ -40,7 +42,8 @@ function App() {
       const geometry = generateTerrainGeometry(segments, selection, 100, {
         baseHeight,
         verticalScale,
-        maxHeight: isUnlimitedHeight ? Infinity : maxHeight
+        maxHeight: isUnlimitedHeight ? Infinity : maxHeight,
+        smoothing
       });
       setTerrainGeometry(geometry);
 
@@ -57,13 +60,13 @@ function App() {
       // Generate roads if we have them
       if (roadFeatures.length > 0) {
         console.log("Generating road geometries...");
-        const group = createRoadGeometries(roadFeatures, geometry);
+        const group = createRoadGeometries(roadFeatures, geometry, { widthScale: roadScale });
         setRoadsGroup(group);
       } else {
         setRoadsGroup(null);
       }
     }
-  }, [baseHeight, verticalScale, buildingVerticalScale, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures]);
+  }, [baseHeight, verticalScale, buildingVerticalScale, roadScale, smoothing, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures]);
 
   const handleGenerate = async () => {
     if (!selection) return;
@@ -202,6 +205,32 @@ function App() {
                   step="0.1" 
                   value={buildingVerticalScale} 
                   onChange={(e) => setBuildingVerticalScale(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
+                  Road Scale: {roadScale}x
+                </label>
+                <input 
+                  type="range" 
+                  min="0.1" 
+                  max="5" 
+                  step="0.1" 
+                  value={roadScale} 
+                  onChange={(e) => setRoadScale(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
+                  Smoothing: {smoothing}
+                </label>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="10" 
+                  step="1" 
+                  value={smoothing} 
+                  onChange={(e) => setSmoothing(Number(e.target.value))}
                   style={{ width: '100%' }}
                 />
                 
