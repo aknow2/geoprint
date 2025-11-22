@@ -32,6 +32,8 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          VITE_MAPTILER_KEY: ${{ secrets.VITE_MAPTILER_KEY }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
