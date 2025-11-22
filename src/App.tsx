@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import './App.css';
 import Scene3D from './components/Scene3D';
-import ApiKeyInput from './components/ApiKeyInput';
 import MapSelector from './components/MapSelector';
 import { useSelection } from './hooks/useSelection';
 import { fetchContourTiles, fetchVectorTiles } from './services/tileService';
@@ -131,7 +130,6 @@ function App() {
 
   return (
     <div className="app-container">
-      <ApiKeyInput />
       <header className="app-header">
         <h1>GeoPrint: Map to STL</h1>
       </header>
