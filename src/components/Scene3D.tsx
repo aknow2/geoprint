@@ -5,9 +5,10 @@ import { OrbitControls } from 'three-stdlib';
 interface Scene3DProps {
   terrainGeometry: THREE.BufferGeometry | null;
   buildingsGroup: THREE.Group | null;
+  roadsGroup?: THREE.Group | null;
 }
 
-const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup }) => {
+const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, roadsGroup }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -15,9 +16,11 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup }) =>
   const controlsRef = useRef<OrbitControls | null>(null);
   const meshRef = useRef<THREE.Mesh | null>(null);
   const buildingsRef = useRef<THREE.Group | null>(null);
+  const roadsRef = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
+
 
     // Scene setup
     const scene = new THREE.Scene();
@@ -150,6 +153,23 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup }) =>
       buildingsRef.current = null;
     }
   }, [buildingsGroup]);
+
+  // Update Roads
+  useEffect(() => {
+    if (!sceneRef.current) return;
+
+    // Remove old roads
+    if (roadsRef.current) {
+      sceneRef.current.remove(roadsRef.current);
+    }
+
+    if (roadsGroup) {
+      sceneRef.current.add(roadsGroup);
+      roadsRef.current = roadsGroup;
+    } else {
+      roadsRef.current = null;
+    }
+  }, [roadsGroup]);
 
   return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
 };

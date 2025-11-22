@@ -20,6 +20,13 @@ export interface BuildingFeature {
   center: [number, number];
 }
 
+export interface RoadFeature {
+  id: string;
+  geometry: any; // GeoJSON.LineString | GeoJSON.MultiLineString
+  class: string;
+  name?: string;
+}
+
 export interface BuildingMesh {
   mesh: Mesh;
   userData: {

@@ -1,7 +1,7 @@
 import Pbf from 'pbf';
 import { VectorTile } from '@mapbox/vector-tile';
 import type { TileData } from '../services/tileService';
-import type { BuildingFeature } from '../types';
+import type { BuildingFeature, RoadFeature } from '../types';
 
 export interface Point3D {
   x: number;
@@ -140,4 +140,57 @@ export const parseBuildings = (tiles: TileData[], center: {lat: number, lng: num
   });
 
   return buildings;
+};
+
+export const parseRoads = (tiles: TileData[], center: {lat: number, lng: number}): RoadFeature[] => {
+  const roads: RoadFeature[] = [];
+
+  tiles.forEach(tile => {
+    const pbf = new Pbf(tile.buffer);
+    const vt = new VectorTile(pbf);
+    const layer = vt.layers['transportation'];
+    if (!layer) return;
+
+    for (let i = 0; i < layer.length; i++) {
+      const feature = layer.feature(i);
+      const props = feature.properties;
+      
+      const roadClass = props.class as string;
+      if (!roadClass) continue;
+      
+      // Skip tunnels
+      if (props.brunnel === 'tunnel') continue;
+
+      const geojson = feature.toGeoJSON(tile.x, tile.y, tile.z);
+      
+      if (geojson.geometry.type !== 'LineString' && geojson.geometry.type !== 'MultiLineString') continue;
+
+      const geometry = geojson.geometry;
+      
+      // Helper to project [lon, lat] -> [x, y] (meters relative to center)
+      const project = (lon: number, lat: number) => {
+          const x = (lon - center.lng) * 111320 * Math.cos(center.lat * Math.PI / 180);
+          const y = (lat - center.lat) * 111320;
+          return [x, y];
+      };
+
+      const projectLine = (line: number[][]) => line.map(coord => project(coord[0], coord[1]));
+      
+      // Project coordinates in place
+      if (geometry.type === 'LineString') {
+          geometry.coordinates = projectLine(geometry.coordinates);
+      } else if (geometry.type === 'MultiLineString') {
+          geometry.coordinates = geometry.coordinates.map((line: any) => projectLine(line));
+      }
+
+      roads.push({
+        id: (feature.id || `${tile.x}-${tile.y}-${i}`).toString(),
+        geometry: geometry,
+        class: roadClass,
+        name: props.name as string
+      });
+    }
+  });
+
+  return roads;
 };

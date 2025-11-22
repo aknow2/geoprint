@@ -5,10 +5,10 @@ import ApiKeyInput from './components/ApiKeyInput';
 import MapSelector from './components/MapSelector';
 import { useSelection } from './hooks/useSelection';
 import { fetchContourTiles, fetchVectorTiles } from './services/tileService';
-import { parseTiles, parseBuildings } from './utils/tileParser';
+import { parseTiles, parseBuildings, parseRoads } from './utils/tileParser';
 import type { ContourSegment } from './utils/tileParser';
-import type { BuildingFeature } from './types';
-import { generateTerrainGeometry, createBuildingGeometries } from './utils/geometryGenerator';
+import type { BuildingFeature, RoadFeature } from './types';
+import { generateTerrainGeometry, createBuildingGeometries, createRoadGeometries } from './utils/geometryGenerator';
 import { exportToSTL } from './utils/stlExporter';
 import * as THREE from 'three';
 
@@ -16,8 +16,11 @@ function App() {
   const { selection, updateSelection } = useSelection();
   const [terrainGeometry, setTerrainGeometry] = useState<THREE.BufferGeometry | null>(null);
   const [buildingFeatures, setBuildingFeatures] = useState<BuildingFeature[]>([]);
+  const [roadFeatures, setRoadFeatures] = useState<RoadFeature[]>([]);
   const [buildingsGroup, setBuildingsGroup] = useState<THREE.Group | null>(null);
+  const [roadsGroup, setRoadsGroup] = useState<THREE.Group | null>(null);
   const [showBuildings, setShowBuildings] = useState(true);
+  const [showRoads, setShowRoads] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -50,8 +53,17 @@ function App() {
         console.log("No building features to generate.");
         setBuildingsGroup(null);
       }
+
+      // Generate roads if we have them
+      if (roadFeatures.length > 0) {
+        console.log("Generating road geometries...");
+        const group = createRoadGeometries(roadFeatures, geometry);
+        setRoadsGroup(group);
+      } else {
+        setRoadsGroup(null);
+      }
     }
-  }, [baseHeight, verticalScale, buildingVerticalScale, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures]);
+  }, [baseHeight, verticalScale, buildingVerticalScale, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures]);
 
   const handleGenerate = async () => {
     if (!selection) return;
@@ -75,6 +87,10 @@ function App() {
       const parsedBuildings = parseBuildings(buildingTiles, center);
       console.log(`Parsed ${parsedBuildings.length} buildings.`);
       setBuildingFeatures(parsedBuildings);
+
+      const parsedRoads = parseRoads(buildingTiles, center);
+      console.log(`Parsed ${parsedRoads.length} roads.`);
+      setRoadFeatures(parsedRoads);
       
       // Geometry generation is handled by the useEffect
       
@@ -95,6 +111,10 @@ function App() {
     
     if (buildingsGroup && showBuildings) {
       exportGroup.add(buildingsGroup.clone());
+    }
+    
+    if (roadsGroup && showRoads) {
+      exportGroup.add(roadsGroup.clone());
     }
 
     const blob = exportToSTL(exportGroup);
@@ -117,7 +137,11 @@ function App() {
           <MapSelector onSelectionChange={updateSelection} />
         </div>
         <div className="scene-container">
-          <Scene3D terrainGeometry={terrainGeometry} buildingsGroup={showBuildings ? buildingsGroup : null} />
+          <Scene3D 
+            terrainGeometry={terrainGeometry} 
+            buildingsGroup={showBuildings ? buildingsGroup : null} 
+            roadsGroup={showRoads ? roadsGroup : null}
+          />
           {selection && (
             <div style={{
               position: 'absolute',
@@ -214,6 +238,16 @@ function App() {
                     style={{ marginRight: '5px' }}
                   />
                   Show Buildings
+                </label>
+
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '5px', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={showRoads} 
+                    onChange={(e) => setShowRoads(e.target.checked)}
+                    style={{ marginRight: '5px' }}
+                  />
+                  Show Roads
                 </label>
               </div>
 

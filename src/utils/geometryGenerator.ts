@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { ContourSegment } from './tileParser';
-import type { BoundingBox, BuildingFeature } from '../types';
+import type { BoundingBox, BuildingFeature, RoadFeature } from '../types';
 
 export const generateTerrainGeometry = (
   segments: ContourSegment[], 
@@ -354,6 +354,88 @@ export const createBuildingGeometries = (
   });
 
   console.log(`Placed ${placedCount} / ${buildings.length} buildings on terrain.`);
+
+  return group;
+};
+
+export const createRoadGeometries = (
+  roads: RoadFeature[],
+  terrainGeometry: THREE.BufferGeometry,
+  options: { verticalScale?: number } = {}
+): THREE.Group => {
+  const group = new THREE.Group();
+  const gridData = terrainGeometry.userData.grid;
+
+  if (!gridData) {
+      console.warn("Terrain geometry missing grid data in userData");
+      return group;
+  }
+
+  const { elevations, minX, maxX, minY, maxY, gridX, gridY, verticalScale: terrainVerticalScale } = gridData;
+  const rangeX = maxX - minX;
+  const rangeY = maxY - minY;
+  
+  // Use provided vertical scale or fallback
+  const roadVerticalScale = options.verticalScale !== undefined ? options.verticalScale : terrainVerticalScale;
+
+  console.log(`Generating geometry for ${roads.length} roads.`);
+
+  const getElevation = (x: number, y: number): number | null => {
+      const ix = Math.floor((x - minX) / rangeX * (gridX - 1));
+      const iy = Math.floor((y - minY) / rangeY * (gridY - 1));
+      
+      if (ix >= 0 && ix < gridX && iy >= 0 && iy < gridY) {
+          return elevations[iy * gridX + ix];
+      }
+      return null;
+  };
+
+  const roadWidths: {[key: string]: number} = {
+      'motorway': 4,
+      'trunk': 3.5,
+      'primary': 3,
+      'secondary': 2.5,
+      'tertiary': 2,
+      'residential': 1.5,
+      'service': 1,
+      'footway': 0.5,
+      'path': 0.5
+  };
+
+  roads.forEach(road => {
+      const lines = road.geometry.type === 'MultiLineString' 
+          ? road.geometry.coordinates 
+          : [road.geometry.coordinates];
+
+      const width = roadWidths[road.class] || 1;
+      const radius = (width / 2) * 1.5; // Slightly wider for visibility
+
+      lines.forEach((lineCoords: any) => {
+          const points: THREE.Vector3[] = [];
+          
+          lineCoords.forEach((p: number[]) => {
+              const x = p[0];
+              const y = p[1];
+              const ele = getElevation(x, y);
+              
+              if (ele !== null) {
+                  // Lift road slightly above terrain
+                  points.push(new THREE.Vector3(x, y, ele + 0.5));
+              }
+          });
+
+          if (points.length < 2) return;
+
+          const curve = new THREE.CatmullRomCurve3(points);
+          // TubeGeometry(path, tubularSegments, radius, radialSegments, closed)
+          // Optimize segments based on length?
+          const segments = Math.max(points.length * 5, 64); 
+          const geometry = new THREE.TubeGeometry(curve, segments, radius, 4, false); // 4 radial segments = square profile (diamond)
+          
+          const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x555555 }));
+          group.add(mesh);
+      });
+  });
 
   return group;
 };
