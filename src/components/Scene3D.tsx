@@ -6,9 +6,10 @@ interface Scene3DProps {
   terrainGeometry: THREE.BufferGeometry | null;
   buildingsGroup: THREE.Group | null;
   roadsGroup?: THREE.Group | null;
+  waterGroup?: THREE.Group | null;
 }
 
-const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, roadsGroup }) => {
+const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, roadsGroup, waterGroup }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -17,6 +18,7 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, road
   const meshRef = useRef<THREE.Mesh | null>(null);
   const buildingsRef = useRef<THREE.Group | null>(null);
   const roadsRef = useRef<THREE.Group | null>(null);
+  const waterRef = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -170,6 +172,23 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, road
       roadsRef.current = null;
     }
   }, [roadsGroup]);
+
+  // Update Water
+  useEffect(() => {
+    if (!sceneRef.current) return;
+
+    // Remove old water
+    if (waterRef.current) {
+      sceneRef.current.remove(waterRef.current);
+    }
+
+    if (waterGroup) {
+      sceneRef.current.add(waterGroup);
+      waterRef.current = waterGroup;
+    } else {
+      waterRef.current = null;
+    }
+  }, [waterGroup]);
 
   return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
 };

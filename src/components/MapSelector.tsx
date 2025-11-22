@@ -80,7 +80,7 @@ const MapSelector: React.FC<MapSelectorProps> = ({ onSelectionChange }) => {
     if (mapContainer.current) {
       map.current = new maptilersdk.Map({
         container: mapContainer.current,
-        style: maptilersdk.MapStyle.STREETS,
+        style: maptilersdk.MapStyle.TOPO,
         center: [139.6917, 35.6895],
         zoom: 12,
         geolocate: maptilersdk.GeolocationType.POINT
