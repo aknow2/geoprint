@@ -223,7 +223,8 @@ export const generateTerrainGeometry = (
 
 export const createBuildingGeometries = (
   buildings: BuildingFeature[], 
-  terrainGeometry: THREE.BufferGeometry
+  terrainGeometry: THREE.BufferGeometry,
+  options: { verticalScale?: number } = {}
 ): THREE.Group => {
   const group = new THREE.Group();
   const gridData = terrainGeometry.userData.grid;
@@ -233,11 +234,14 @@ export const createBuildingGeometries = (
       return group;
   }
 
-  const { elevations, minX, maxX, minY, maxY, gridX, gridY, verticalScale } = gridData;
+  const { elevations, minX, maxX, minY, maxY, gridX, gridY, verticalScale: terrainVerticalScale } = gridData;
   const rangeX = maxX - minX;
   const rangeY = maxY - minY;
 
-  console.log(`Generating geometry for ${buildings.length} buildings.`);
+  // Use provided vertical scale or fallback to terrain's scale
+  const buildingVerticalScale = options.verticalScale !== undefined ? options.verticalScale : terrainVerticalScale;
+
+  console.log(`Generating geometry for ${buildings.length} buildings. Scale: ${buildingVerticalScale}`);
   let placedCount = 0;
 
   buildings.forEach(building => {
@@ -306,16 +310,21 @@ export const createBuildingGeometries = (
 
           // 4. Extrude
           // We want the top of the building to be at: 
-          //    TopZ = terrainHeight + (minHeight + height) * verticalScale
+          //    TopZ = terrainHeight + (minHeight + height) * buildingVerticalScale
           // We want the bottom of the building to be at:
-          //    BottomZ = terrainHeight - (10 * verticalScale)
-          //    BUT clamped so BottomZ >= 0 (to avoid sticking out of the model bottom)
+          //    BottomZ = terrainHeight - FixedBasementDepth
+          //    We use a fixed basement depth (e.g. 5m) so that scaling the building 
+          //    only affects the height upwards, not the depth downwards.
+          //    This makes the building appear "anchored" to the terrain.
           
-          let bottomZ = terrainHeight - (10 * verticalScale);
-          if (bottomZ < 0) bottomZ = 0;
+          const BASEMENT_DEPTH = 5; // 5 meters fixed basement
+          let bottomZ = terrainHeight - BASEMENT_DEPTH;
+          
+          // Clamp to a small positive value (e.g. 0.2m) to prevent Z-fighting with the bottom layer (Z=0)
+          if (bottomZ < 0.2) bottomZ = 0.2;
 
           // Total extrusion depth = TopZ - BottomZ
-          const topZ = terrainHeight + (building.minHeight + building.height) * verticalScale;
+          const topZ = terrainHeight + (building.minHeight + building.height) * buildingVerticalScale;
           const totalHeight = topZ - bottomZ;
 
           if (totalHeight <= 0) return;

@@ -24,6 +24,7 @@ function App() {
   // Parameters
   const [baseHeight, setBaseHeight] = useState(2);
   const [verticalScale, setVerticalScale] = useState(1.5);
+  const [buildingVerticalScale, setBuildingVerticalScale] = useState(1.5);
   const [maxHeight, setMaxHeight] = useState(200);
   const [isUnlimitedHeight, setIsUnlimitedHeight] = useState(false);
   
@@ -43,14 +44,14 @@ function App() {
       // Generate buildings if we have them
       if (buildingFeatures.length > 0) {
         console.log("Generating building geometries...");
-        const group = createBuildingGeometries(buildingFeatures, geometry);
+        const group = createBuildingGeometries(buildingFeatures, geometry, { verticalScale: buildingVerticalScale });
         setBuildingsGroup(group);
       } else {
         console.log("No building features to generate.");
         setBuildingsGroup(null);
       }
     }
-  }, [baseHeight, verticalScale, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures]);
+  }, [baseHeight, verticalScale, buildingVerticalScale, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures]);
 
   const handleGenerate = async () => {
     if (!selection) return;
@@ -164,6 +165,19 @@ function App() {
                   step="0.1" 
                   value={verticalScale} 
                   onChange={(e) => setVerticalScale(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
+                  Building Scale: {buildingVerticalScale}x
+                </label>
+                <input 
+                  type="range" 
+                  min="0.1" 
+                  max="5" 
+                  step="0.1" 
+                  value={buildingVerticalScale} 
+                  onChange={(e) => setBuildingVerticalScale(Number(e.target.value))}
                   style={{ width: '100%' }}
                 />
                 
