@@ -1,18 +1,17 @@
 import * as THREE from 'three';
 import { STLExporter } from 'three-stdlib';
 
-export const exportToSTL = (geometry: THREE.BufferGeometry): Blob => {
+export const exportToSTL = (object: THREE.Object3D | THREE.BufferGeometry): Blob => {
   const exporter = new STLExporter();
-  // Create a temporary mesh to export
-  const mesh = new THREE.Mesh(geometry);
+  let exportObject: THREE.Object3D;
+
+  if (object instanceof THREE.BufferGeometry) {
+      exportObject = new THREE.Mesh(object);
+  } else {
+      exportObject = object;
+  }
   
-  // Ensure transforms are applied if needed?
-  // The geometry is already in the correct shape.
-  // But we might want to rotate it for printing (Z up is standard for some, Y up for others).
-  // Our geometry has Z up (elevation).
-  // STLExporter exports as is.
-  
-  const result = exporter.parse(mesh, { binary: true });
+  const result = exporter.parse(exportObject, { binary: true });
   // STLExporter returns DataView or string. With binary: true, it returns DataView.
   // Blob constructor expects BlobPart[] which includes ArrayBuffer, but DataView might have type mismatch issues in some TS versions.
   // We can extract the buffer from DataView.

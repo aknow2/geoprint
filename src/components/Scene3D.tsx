@@ -4,15 +4,17 @@ import { OrbitControls } from 'three-stdlib';
 
 interface Scene3DProps {
   terrainGeometry: THREE.BufferGeometry | null;
+  buildingsGroup: THREE.Group | null;
 }
 
-const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry }) => {
+const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const meshRef = useRef<THREE.Mesh | null>(null);
+  const buildingsRef = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -120,6 +122,34 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry }) => {
     }
 
   }, [terrainGeometry]);
+
+  // Update Buildings
+  useEffect(() => {
+    if (!sceneRef.current) return;
+
+    // Remove old buildings
+    if (buildingsRef.current) {
+      sceneRef.current.remove(buildingsRef.current);
+      // Dispose geometries/materials?
+      // buildingsRef.current.traverse((child) => {
+      //   if (child instanceof THREE.Mesh) {
+      //     child.geometry.dispose();
+      //     if (Array.isArray(child.material)) {
+      //       child.material.forEach(m => m.dispose());
+      //     } else {
+      //       child.material.dispose();
+      //     }
+      //   }
+      // });
+    }
+
+    if (buildingsGroup) {
+      sceneRef.current.add(buildingsGroup);
+      buildingsRef.current = buildingsGroup;
+    } else {
+      buildingsRef.current = null;
+    }
+  }, [buildingsGroup]);
 
   return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
 };

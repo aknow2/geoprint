@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { ContourSegment } from './tileParser';
-import type { BoundingBox } from '../types';
+import type { BoundingBox, BuildingFeature } from '../types';
 
 export const generateTerrainGeometry = (
   segments: ContourSegment[], 
@@ -207,5 +207,144 @@ export const generateTerrainGeometry = (
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
+
+  geometry.userData = {
+    grid: {
+      elevations,
+      minX, maxX, minY, maxY,
+      gridX, gridY,
+      minElevation,
+      verticalScale
+    }
+  };
+
   return geometry;
+};
+
+export const createBuildingGeometries = (
+  buildings: BuildingFeature[], 
+  terrainGeometry: THREE.BufferGeometry
+): THREE.Group => {
+  const group = new THREE.Group();
+  const gridData = terrainGeometry.userData.grid;
+  
+  if (!gridData) {
+      console.warn("Terrain geometry missing grid data in userData");
+      return group;
+  }
+
+  const { elevations, minX, maxX, minY, maxY, gridX, gridY, verticalScale } = gridData;
+  const rangeX = maxX - minX;
+  const rangeY = maxY - minY;
+
+  console.log(`Generating geometry for ${buildings.length} buildings.`);
+  let placedCount = 0;
+
+  buildings.forEach(building => {
+      const polygons = building.geometry.type === 'MultiPolygon' 
+          ? building.geometry.coordinates 
+          : [building.geometry.coordinates];
+
+      polygons.forEach((polygonCoords: any) => {
+          // 1. Create Shape
+          const shape = new THREE.Shape();
+          const outerRing = polygonCoords[0];
+          
+          if (!outerRing || outerRing.length < 3) return;
+
+          shape.moveTo(outerRing[0][0], outerRing[0][1]);
+          for (let i = 1; i < outerRing.length; i++) {
+              shape.lineTo(outerRing[i][0], outerRing[i][1]);
+          }
+
+          // Handle holes (inner rings)
+          if (polygonCoords.length > 1) {
+              for (let i = 1; i < polygonCoords.length; i++) {
+                  const holeCoords = polygonCoords[i];
+                  const holePath = new THREE.Path();
+                  holePath.moveTo(holeCoords[0][0], holeCoords[0][1]);
+                  for (let j = 1; j < holeCoords.length; j++) {
+                      holePath.lineTo(holeCoords[j][0], holeCoords[j][1]);
+                  }
+                  shape.holes.push(holePath);
+              }
+          }
+
+          // 2. Check bounds and Calculate Center
+          // Check if ANY point is outside the terrain bounds
+          let cx = 0, cy = 0;
+          let isFullyInside = true;
+
+          for (const p of outerRing) {
+              if (p[0] < minX || p[0] > maxX || p[1] < minY || p[1] > maxY) {
+                  isFullyInside = false;
+                  break;
+              }
+              cx += p[0];
+              cy += p[1];
+          }
+
+          if (!isFullyInside) return;
+
+          cx /= outerRing.length;
+          cy /= outerRing.length;
+          
+          // 3. Grid Lookup for Elevation
+          // Map to grid index
+          const ix = Math.floor((cx - minX) / rangeX * (gridX - 1));
+          const iy = Math.floor((cy - minY) / rangeY * (gridY - 1));
+          
+          let terrainHeight = 0;
+          if (ix >= 0 && ix < gridX && iy >= 0 && iy < gridY) {
+              // elevations array is row-major
+              terrainHeight = elevations[iy * gridX + ix];
+              placedCount++;
+          } else {
+              // Should be rare if points are inside, but safe to skip
+              return;
+          }
+
+          // 4. Extrude
+          // We want the top of the building to be at: 
+          //    TopZ = terrainHeight + (minHeight + height) * verticalScale
+          // We want the bottom of the building to be at:
+          //    BottomZ = terrainHeight - (10 * verticalScale)
+          //    BUT clamped so BottomZ >= 0 (to avoid sticking out of the model bottom)
+          
+          let bottomZ = terrainHeight - (10 * verticalScale);
+          if (bottomZ < 0) bottomZ = 0;
+
+          // Total extrusion depth = TopZ - BottomZ
+          const topZ = terrainHeight + (building.minHeight + building.height) * verticalScale;
+          const totalHeight = topZ - bottomZ;
+
+          if (totalHeight <= 0) return;
+
+          const extrudeSettings = {
+              depth: totalHeight,
+              bevelEnabled: false
+          };
+          
+          const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+          
+          const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0xcccccc }));
+          
+          // 5. Placement
+          // Mesh is created from Z=0 to Z=totalHeight.
+          // We place it so Z=0 is at BottomZ.
+          mesh.position.z = bottomZ;
+          
+          // Add metadata
+          mesh.userData = {
+              featureId: building.id,
+              height: building.height
+          };
+
+          group.add(mesh);
+      });
+  });
+
+  console.log(`Placed ${placedCount} / ${buildings.length} buildings on terrain.`);
+
+  return group;
 };

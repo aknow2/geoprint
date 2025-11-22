@@ -47,3 +47,34 @@ export const fetchContourTiles = async (bbox: BoundingBox, zoom: number = 14): P
 
   return Promise.all(promises);
 };
+
+export const fetchVectorTiles = async (bbox: BoundingBox, zoom: number = 14): Promise<TileData[]> => {
+  const apiKey = getMapTilerKey();
+  if (!apiKey) throw new Error("API Key missing");
+
+  const minX = long2tile(bbox.west, zoom);
+  const maxX = long2tile(bbox.east, zoom);
+  const minY = lat2tile(bbox.north, zoom);
+  const maxY = lat2tile(bbox.south, zoom);
+
+  const tiles = [];
+  for (let x = minX; x <= maxX; x++) {
+    for (let y = minY; y <= maxY; y++) {
+      tiles.push({ x, y, z: zoom });
+    }
+  }
+
+  const promises = tiles.map(async (tile) => {
+    // Use the standard 'v3' tileset which corresponds to OpenMapTiles (Planet)
+    const url = `https://api.maptiler.com/tiles/v3/${tile.z}/${tile.x}/${tile.y}.pbf?key=${apiKey}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        console.error(`Failed to fetch vector tile ${tile.z}/${tile.x}/${tile.y}: ${response.statusText}`);
+        throw new Error(`Failed to fetch vector tile ${tile.z}/${tile.x}/${tile.y}`);
+    }
+    const buffer = await response.arrayBuffer();
+    return { ...tile, buffer };
+  });
+
+  return Promise.all(promises);
+};

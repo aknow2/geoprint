@@ -4,16 +4,20 @@ import Scene3D from './components/Scene3D';
 import ApiKeyInput from './components/ApiKeyInput';
 import MapSelector from './components/MapSelector';
 import { useSelection } from './hooks/useSelection';
-import { fetchContourTiles } from './services/tileService';
-import { parseTiles } from './utils/tileParser';
+import { fetchContourTiles, fetchVectorTiles } from './services/tileService';
+import { parseTiles, parseBuildings } from './utils/tileParser';
 import type { ContourSegment } from './utils/tileParser';
-import { generateTerrainGeometry } from './utils/geometryGenerator';
+import type { BuildingFeature } from './types';
+import { generateTerrainGeometry, createBuildingGeometries } from './utils/geometryGenerator';
 import { exportToSTL } from './utils/stlExporter';
 import * as THREE from 'three';
 
 function App() {
   const { selection, updateSelection } = useSelection();
   const [terrainGeometry, setTerrainGeometry] = useState<THREE.BufferGeometry | null>(null);
+  const [buildingFeatures, setBuildingFeatures] = useState<BuildingFeature[]>([]);
+  const [buildingsGroup, setBuildingsGroup] = useState<THREE.Group | null>(null);
+  const [showBuildings, setShowBuildings] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -35,8 +39,18 @@ function App() {
         maxHeight: isUnlimitedHeight ? Infinity : maxHeight
       });
       setTerrainGeometry(geometry);
+
+      // Generate buildings if we have them
+      if (buildingFeatures.length > 0) {
+        console.log("Generating building geometries...");
+        const group = createBuildingGeometries(buildingFeatures, geometry);
+        setBuildingsGroup(group);
+      } else {
+        console.log("No building features to generate.");
+        setBuildingsGroup(null);
+      }
     }
-  }, [baseHeight, verticalScale, maxHeight, isUnlimitedHeight, segments, selection]);
+  }, [baseHeight, verticalScale, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures]);
 
   const handleGenerate = async () => {
     if (!selection) return;
@@ -44,7 +58,10 @@ function App() {
     setError(null);
     try {
       // 1. Fetch tiles
-      const tiles = await fetchContourTiles(selection);
+      const [tiles, buildingTiles] = await Promise.all([
+        fetchContourTiles(selection),
+        fetchVectorTiles(selection)
+      ]);
       
       // 2. Parse tiles
       const center = {
@@ -53,6 +70,10 @@ function App() {
       };
       const parsedSegments = parseTiles(tiles, center);
       setSegments(parsedSegments);
+
+      const parsedBuildings = parseBuildings(buildingTiles, center);
+      console.log(`Parsed ${parsedBuildings.length} buildings.`);
+      setBuildingFeatures(parsedBuildings);
       
       // Geometry generation is handled by the useEffect
       
@@ -66,7 +87,16 @@ function App() {
 
   const handleDownload = () => {
     if (!terrainGeometry) return;
-    const blob = exportToSTL(terrainGeometry);
+    
+    const exportGroup = new THREE.Group();
+    const terrainMesh = new THREE.Mesh(terrainGeometry);
+    exportGroup.add(terrainMesh);
+    
+    if (buildingsGroup && showBuildings) {
+      exportGroup.add(buildingsGroup.clone());
+    }
+
+    const blob = exportToSTL(exportGroup);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -79,14 +109,14 @@ function App() {
     <div className="app-container">
       <ApiKeyInput />
       <header className="app-header">
-        <h1>PrintGeo: Map to STL</h1>
+        <h1>GeoPrint: Map to STL</h1>
       </header>
       <main className="app-main">
         <div className="map-container">
           <MapSelector onSelectionChange={updateSelection} />
         </div>
         <div className="scene-container">
-          <Scene3D terrainGeometry={terrainGeometry} />
+          <Scene3D terrainGeometry={terrainGeometry} buildingsGroup={showBuildings ? buildingsGroup : null} />
           {selection && (
             <div style={{
               position: 'absolute',
@@ -161,6 +191,16 @@ function App() {
                   onChange={(e) => setMaxHeight(Number(e.target.value))}
                   style={{ width: '100%', opacity: isUnlimitedHeight ? 0.5 : 1 }}
                 />
+                
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '5px', marginTop: '10px', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={showBuildings} 
+                    onChange={(e) => setShowBuildings(e.target.checked)}
+                    style={{ marginRight: '5px' }}
+                  />
+                  Show Buildings
+                </label>
               </div>
 
               <button 
@@ -203,7 +243,7 @@ function App() {
         </div>
       </main>
       <footer className="app-footer">
-        <p>&copy; 2025 PrintGeo</p>
+        <p>&copy; 2025 GeoPrint</p>
       </footer>
     </div>
   );

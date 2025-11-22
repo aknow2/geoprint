@@ -1,4 +1,4 @@
-# PrintGeo Constitution
+# GeoPrint Constitution
 
 ## Core Principles
 
