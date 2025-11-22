@@ -1,7 +1,7 @@
 import Pbf from 'pbf';
 import { VectorTile } from '@mapbox/vector-tile';
 import type { TileData } from '../services/tileService';
-import type { BuildingFeature, RoadFeature } from '../types';
+import type { BuildingFeature, RoadFeature, WaterFeature } from '../types';
 
 export interface Point3D {
   x: number;
@@ -114,6 +114,7 @@ export const parseBuildings = (tiles: TileData[], center: {lat: number, lng: num
       if (geometry.type === 'Polygon') {
           geometry.coordinates = geometry.coordinates.map(projectRing);
       } else if (geometry.type === 'MultiPolygon') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           geometry.coordinates = geometry.coordinates.map((polygon: any) => polygon.map(projectRing));
       }
 
@@ -180,7 +181,7 @@ export const parseRoads = (tiles: TileData[], center: {lat: number, lng: number}
       if (geometry.type === 'LineString') {
           geometry.coordinates = projectLine(geometry.coordinates);
       } else if (geometry.type === 'MultiLineString') {
-          geometry.coordinates = geometry.coordinates.map((line: any) => projectLine(line));
+          geometry.coordinates = geometry.coordinates.map((line) => projectLine(line));
       }
 
       roads.push({
@@ -193,4 +194,86 @@ export const parseRoads = (tiles: TileData[], center: {lat: number, lng: number}
   });
 
   return roads;
+};
+
+export const parseWaterFeatures = (tiles: TileData[], center: {lat: number, lng: number}): WaterFeature[] => {
+  const waterFeatures: WaterFeature[] = [];
+
+  tiles.forEach(tile => {
+    const pbf = new Pbf(tile.buffer);
+    const vt = new VectorTile(pbf);
+
+    // Helper to project [lon, lat] -> [x, y] (meters relative to center)
+    const project = (lon: number, lat: number) => {
+        const x = (lon - center.lng) * 111320 * Math.cos(center.lat * Math.PI / 180);
+        const y = (lat - center.lat) * 111320;
+        return [x, y];
+    };
+    const projectRing = (ring: number[][]) => ring.map(coord => project(coord[0], coord[1]));
+    const projectLine = (line: number[][]) => line.map(coord => project(coord[0], coord[1]));
+
+    // 1. Parse 'water' layer (Polygons)
+    const waterLayer = vt.layers['water'];
+    if (waterLayer) {
+      for (let i = 0; i < waterLayer.length; i++) {
+        const feature = waterLayer.feature(i);
+        const props = feature.properties;
+        
+        const geojson = feature.toGeoJSON(tile.x, tile.y, tile.z);
+        if (geojson.geometry.type !== 'Polygon' && geojson.geometry.type !== 'MultiPolygon') continue;
+
+        const geometry = geojson.geometry;
+        if (geometry.type === 'Polygon') {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            geometry.coordinates = geometry.coordinates.map(projectRing as any);
+        } else if (geometry.type === 'MultiPolygon') {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            geometry.coordinates = geometry.coordinates.map((polygon: any) => polygon.map(projectRing));
+        }
+
+        waterFeatures.push({
+          id: (feature.id || `water-${tile.x}-${tile.y}-${i}`).toString(),
+          type: 'Polygon',
+          geometry: geometry,
+          class: (props.class as string) || 'water',
+          name: props.name as string,
+          properties: props
+        });
+      }
+    }
+
+    // 2. Parse 'waterway' layer (Lines)
+    const waterwayLayer = vt.layers['waterway'];
+    if (waterwayLayer) {
+      for (let i = 0; i < waterwayLayer.length; i++) {
+        const feature = waterwayLayer.feature(i);
+        const props = feature.properties;
+        
+        if (props.brunnel === 'tunnel') continue;
+
+        const geojson = feature.toGeoJSON(tile.x, tile.y, tile.z);
+        if (geojson.geometry.type !== 'LineString' && geojson.geometry.type !== 'MultiLineString') continue;
+
+        const geometry = geojson.geometry;
+        if (geometry.type === 'LineString') {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            geometry.coordinates = projectLine(geometry.coordinates as any) as any;
+        } else if (geometry.type === 'MultiLineString') {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            geometry.coordinates = geometry.coordinates.map((line: any) => projectLine(line));
+        }
+
+        waterFeatures.push({
+          id: (feature.id || `waterway-${tile.x}-${tile.y}-${i}`).toString(),
+          type: 'LineString',
+          geometry: geometry,
+          class: (props.class as string) || 'stream',
+          name: props.name as string,
+          properties: props
+        });
+      }
+    }
+  });
+
+  return waterFeatures;
 };

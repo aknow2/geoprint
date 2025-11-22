@@ -4,10 +4,10 @@ import Scene3D from './components/Scene3D';
 import MapSelector from './components/MapSelector';
 import { useSelection } from './hooks/useSelection';
 import { fetchContourTiles, fetchVectorTiles } from './services/tileService';
-import { parseTiles, parseBuildings, parseRoads } from './utils/tileParser';
+import { parseTiles, parseBuildings, parseRoads, parseWaterFeatures } from './utils/tileParser';
 import type { ContourSegment } from './utils/tileParser';
-import type { BuildingFeature, RoadFeature } from './types';
-import { generateTerrainGeometry, createBuildingGeometries, createRoadGeometries } from './utils/geometryGenerator';
+import type { BuildingFeature, RoadFeature, WaterFeature } from './types';
+import { generateTerrainGeometry, createBuildingGeometries, createRoadGeometries, createWaterGeometries } from './utils/geometryGenerator';
 import { exportToSTL } from './utils/stlExporter';
 import * as THREE from 'three';
 
@@ -16,10 +16,13 @@ function App() {
   const [terrainGeometry, setTerrainGeometry] = useState<THREE.BufferGeometry | null>(null);
   const [buildingFeatures, setBuildingFeatures] = useState<BuildingFeature[]>([]);
   const [roadFeatures, setRoadFeatures] = useState<RoadFeature[]>([]);
+  const [waterFeatures, setWaterFeatures] = useState<WaterFeature[]>([]);
   const [buildingsGroup, setBuildingsGroup] = useState<THREE.Group | null>(null);
   const [roadsGroup, setRoadsGroup] = useState<THREE.Group | null>(null);
+  const [waterGroup, setWaterGroup] = useState<THREE.Group | null>(null);
   const [showBuildings, setShowBuildings] = useState(true);
   const [showRoads, setShowRoads] = useState(true);
+  const [showWater, setShowWater] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -28,6 +31,7 @@ function App() {
   const [verticalScale, setVerticalScale] = useState(1.5);
   const [buildingVerticalScale, setBuildingVerticalScale] = useState(1.5);
   const [roadScale, setRoadScale] = useState(1.0);
+  const [waterDepth, setWaterDepth] = useState(2.0);
   const [smoothing, setSmoothing] = useState(0);
   const [maxHeight, setMaxHeight] = useState(200);
   const [isUnlimitedHeight, setIsUnlimitedHeight] = useState(false);
@@ -42,7 +46,9 @@ function App() {
         baseHeight,
         verticalScale,
         maxHeight: isUnlimitedHeight ? Infinity : maxHeight,
-        smoothing
+        smoothing,
+        waterFeatures: waterFeatures, // Pass water features for carving
+        waterDepth
       });
       setTerrainGeometry(geometry);
 
@@ -64,8 +70,17 @@ function App() {
       } else {
         setRoadsGroup(null);
       }
+
+      // Generate water if we have them
+      if (waterFeatures.length > 0) {
+        console.log("Generating water geometries...");
+        const group = createWaterGeometries(waterFeatures, geometry, { widthScale: roadScale });
+        setWaterGroup(group);
+      } else {
+        setWaterGroup(null);
+      }
     }
-  }, [baseHeight, verticalScale, buildingVerticalScale, roadScale, smoothing, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures]);
+  }, [baseHeight, verticalScale, buildingVerticalScale, roadScale, waterDepth, smoothing, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures, waterFeatures]);
 
   const handleGenerate = async () => {
     if (!selection) return;
@@ -93,6 +108,10 @@ function App() {
       const parsedRoads = parseRoads(buildingTiles, center);
       console.log(`Parsed ${parsedRoads.length} roads.`);
       setRoadFeatures(parsedRoads);
+
+      const parsedWater = parseWaterFeatures(buildingTiles, center);
+      console.log(`Parsed ${parsedWater.length} water features.`);
+      setWaterFeatures(parsedWater);
       
       // Geometry generation is handled by the useEffect
       
@@ -119,6 +138,10 @@ function App() {
       exportGroup.add(roadsGroup.clone());
     }
 
+    if (waterGroup && showWater) {
+      exportGroup.add(waterGroup.clone());
+    }
+
     const blob = exportToSTL(exportGroup);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -142,6 +165,7 @@ function App() {
             terrainGeometry={terrainGeometry} 
             buildingsGroup={showBuildings ? buildingsGroup : null} 
             roadsGroup={showRoads ? roadsGroup : null}
+            waterGroup={showWater ? waterGroup : null}
           />
           {selection && (
             <div style={{
@@ -220,6 +244,19 @@ function App() {
                 />
 
                 <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
+                  Water Depth: {waterDepth}m
+                </label>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="10" 
+                  step="0.5" 
+                  value={waterDepth} 
+                  onChange={(e) => setWaterDepth(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
                   Smoothing: {smoothing}
                 </label>
                 <input 
@@ -275,6 +312,16 @@ function App() {
                     style={{ marginRight: '5px' }}
                   />
                   Show Roads
+                </label>
+
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '5px', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={showWater} 
+                    onChange={(e) => setShowWater(e.target.checked)}
+                    style={{ marginRight: '5px' }}
+                  />
+                  Show Water
                 </label>
               </div>
 

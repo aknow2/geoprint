@@ -14,6 +14,7 @@ export interface GeoPoint {
 
 export interface BuildingFeature {
   id: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   geometry: any; // GeoJSON.Polygon | GeoJSON.MultiPolygon
   height: number;
   minHeight: number;
@@ -22,9 +23,25 @@ export interface BuildingFeature {
 
 export interface RoadFeature {
   id: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   geometry: any; // GeoJSON.LineString | GeoJSON.MultiLineString
   class: string;
   name?: string;
+}
+
+export type WaterFeatureType = 'LineString' | 'Polygon';
+
+export interface WaterFeature {
+  id: string;
+  type: WaterFeatureType;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  geometry: any; // GeoJSON.LineString | GeoJSON.Polygon | GeoJSON.MultiPolygon
+  class: string;
+  name?: string;
+  properties: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    [key: string]: any;
+  };
 }
 
 export interface BuildingMesh {
@@ -32,6 +49,7 @@ export interface BuildingMesh {
   userData: {
     featureId: string;
     height: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   };
 }
