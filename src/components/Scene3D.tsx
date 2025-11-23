@@ -7,9 +7,10 @@ interface Scene3DProps {
   buildingsGroup: THREE.Group | null;
   roadsGroup?: THREE.Group | null;
   waterGroup?: THREE.Group | null;
+  gpxGroup?: THREE.Group | null;
 }
 
-const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, roadsGroup, waterGroup }) => {
+const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, roadsGroup, waterGroup, gpxGroup }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -19,6 +20,7 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, road
   const buildingsRef = useRef<THREE.Group | null>(null);
   const roadsRef = useRef<THREE.Group | null>(null);
   const waterRef = useRef<THREE.Group | null>(null);
+  const gpxRef = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -189,6 +191,23 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, road
       waterRef.current = null;
     }
   }, [waterGroup]);
+
+  // Update GPX
+  useEffect(() => {
+    if (!sceneRef.current) return;
+
+    // Remove old GPX
+    if (gpxRef.current) {
+      sceneRef.current.remove(gpxRef.current);
+    }
+
+    if (gpxGroup) {
+      sceneRef.current.add(gpxGroup);
+      gpxRef.current = gpxGroup;
+    } else {
+      gpxRef.current = null;
+    }
+  }, [gpxGroup]);
 
   return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
 };

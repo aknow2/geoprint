@@ -53,3 +53,15 @@ export interface BuildingMesh {
     [key: string]: any;
   };
 }
+
+export interface GpxPoint {
+  lat: number;
+  lon: number;
+  ele?: number; // Elevation in meters
+  time?: string; // ISO timestamp
+}
+
+export interface GpxTrack {
+  name?: string;
+  segments: GpxPoint[][]; // Array of segments, each segment is an array of points
+}

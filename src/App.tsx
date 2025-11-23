@@ -6,8 +6,8 @@ import { useSelection } from './hooks/useSelection';
 import { fetchContourTiles, fetchVectorTiles } from './services/tileService';
 import { parseTiles, parseBuildings, parseRoads, parseWaterFeatures } from './utils/tileParser';
 import type { ContourSegment } from './utils/tileParser';
-import type { BuildingFeature, RoadFeature, WaterFeature } from './types';
-import { generateTerrainGeometry, createBuildingGeometries, createRoadGeometries, createWaterGeometries } from './utils/geometryGenerator';
+import type { BuildingFeature, RoadFeature, WaterFeature, GpxTrack } from './types';
+import { generateTerrainGeometry, createBuildingGeometries, createRoadGeometries, createWaterGeometries, createGpxGeometries } from './utils/geometryGenerator';
 import { exportToSTL } from './utils/stlExporter';
 import * as THREE from 'three';
 
@@ -17,12 +17,15 @@ function App() {
   const [buildingFeatures, setBuildingFeatures] = useState<BuildingFeature[]>([]);
   const [roadFeatures, setRoadFeatures] = useState<RoadFeature[]>([]);
   const [waterFeatures, setWaterFeatures] = useState<WaterFeature[]>([]);
+  const [gpxTrack, setGpxTrack] = useState<GpxTrack | null>(null);
   const [buildingsGroup, setBuildingsGroup] = useState<THREE.Group | null>(null);
   const [roadsGroup, setRoadsGroup] = useState<THREE.Group | null>(null);
   const [waterGroup, setWaterGroup] = useState<THREE.Group | null>(null);
+  const [gpxGroup, setGpxGroup] = useState<THREE.Group | null>(null);
   const [showBuildings, setShowBuildings] = useState(true);
   const [showRoads, setShowRoads] = useState(true);
   const [showWater, setShowWater] = useState(true);
+  const [showGpx, setShowGpx] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -32,6 +35,8 @@ function App() {
   const [buildingVerticalScale, setBuildingVerticalScale] = useState(1.5);
   const [roadScale, setRoadScale] = useState(1.0);
   const [waterDepth, setWaterDepth] = useState(2.0);
+  const [gpxRadius, setGpxRadius] = useState(1.0);
+  const [gpxOffset, setGpxOffset] = useState(0.0);
   const [smoothing, setSmoothing] = useState(0);
   const [maxHeight, setMaxHeight] = useState(200);
   const [isUnlimitedHeight, setIsUnlimitedHeight] = useState(false);
@@ -79,8 +84,17 @@ function App() {
       } else {
         setWaterGroup(null);
       }
+
+      // Generate GPX if we have it
+      if (gpxTrack) {
+        console.log("Generating GPX geometries...");
+        const group = createGpxGeometries(gpxTrack, geometry, { radius: gpxRadius, minClearance: 5.0, offset: gpxOffset });
+        setGpxGroup(group);
+      } else {
+        setGpxGroup(null);
+      }
     }
-  }, [baseHeight, verticalScale, buildingVerticalScale, roadScale, waterDepth, smoothing, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures, waterFeatures]);
+  }, [baseHeight, verticalScale, buildingVerticalScale, roadScale, waterDepth, smoothing, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures, waterFeatures, gpxTrack, gpxRadius, gpxOffset]);
 
   const handleGenerate = async () => {
     if (!selection) return;
@@ -142,6 +156,10 @@ function App() {
       exportGroup.add(waterGroup.clone());
     }
 
+    if (gpxGroup && showGpx) {
+      exportGroup.add(gpxGroup.clone());
+    }
+
     const blob = exportToSTL(exportGroup);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -158,7 +176,7 @@ function App() {
       </header>
       <main className="app-main">
         <div className="map-container">
-          <MapSelector onSelectionChange={updateSelection} />
+          <MapSelector onSelectionChange={updateSelection} onGpxLoaded={setGpxTrack} />
         </div>
         <div className="scene-container">
           <Scene3D 
@@ -166,6 +184,7 @@ function App() {
             buildingsGroup={showBuildings ? buildingsGroup : null} 
             roadsGroup={showRoads ? roadsGroup : null}
             waterGroup={showWater ? waterGroup : null}
+            gpxGroup={showGpx ? gpxGroup : null}
           />
           {selection && (
             <div style={{
@@ -257,6 +276,32 @@ function App() {
                 />
 
                 <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
+                  GPX Tube Radius: {gpxRadius}m
+                </label>
+                <input 
+                  type="range" 
+                  min="0.5" 
+                  max="30.0" 
+                  step="0.5" 
+                  value={gpxRadius} 
+                  onChange={(e) => setGpxRadius(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
+                  GPX Height Offset: {gpxOffset}m
+                </label>
+                <input 
+                  type="range" 
+                  min="-50" 
+                  max="50" 
+                  step="1" 
+                  value={gpxOffset} 
+                  onChange={(e) => setGpxOffset(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
                   Smoothing: {smoothing}
                 </label>
                 <input 
@@ -322,6 +367,16 @@ function App() {
                     style={{ marginRight: '5px' }}
                   />
                   Show Water
+                </label>
+
+                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '5px', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={showGpx} 
+                    onChange={(e) => setShowGpx(e.target.checked)}
+                    style={{ marginRight: '5px' }}
+                  />
+                  Show GPX
                 </label>
               </div>
 
