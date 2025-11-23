@@ -293,8 +293,8 @@ function App() {
                 </label>
                 <input 
                   type="range" 
-                  min="-50" 
-                  max="50" 
+                  min="-100" 
+                  max="100" 
                   step="1" 
                   value={gpxOffset} 
                   onChange={(e) => setGpxOffset(Number(e.target.value))}
