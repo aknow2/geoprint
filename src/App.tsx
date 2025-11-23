@@ -33,6 +33,7 @@ function App() {
   const [baseHeight, setBaseHeight] = useState(2);
   const [verticalScale, setVerticalScale] = useState(1.5);
   const [buildingVerticalScale, setBuildingVerticalScale] = useState(1.5);
+  const [buildingHorizontalScale, setBuildingHorizontalScale] = useState(1.0);
   const [roadScale, setRoadScale] = useState(1.0);
   const [waterDepth, setWaterDepth] = useState(2.0);
   const [gpxRadius, setGpxRadius] = useState(1.0);
@@ -60,7 +61,10 @@ function App() {
       // Generate buildings if we have them
       if (buildingFeatures.length > 0) {
         console.log("Generating building geometries...");
-        const group = createBuildingGeometries(buildingFeatures, geometry, { verticalScale: buildingVerticalScale });
+        const group = createBuildingGeometries(buildingFeatures, geometry, { 
+          verticalScale: buildingVerticalScale,
+          horizontalScale: buildingHorizontalScale
+        });
         setBuildingsGroup(group);
       } else {
         console.log("No building features to generate.");
@@ -94,7 +98,7 @@ function App() {
         setGpxGroup(null);
       }
     }
-  }, [baseHeight, verticalScale, buildingVerticalScale, roadScale, waterDepth, smoothing, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures, waterFeatures, gpxTrack, gpxRadius, gpxOffset]);
+  }, [baseHeight, verticalScale, buildingVerticalScale, buildingHorizontalScale, roadScale, waterDepth, smoothing, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures, waterFeatures, gpxTrack, gpxRadius, gpxOffset]);
 
   const handleGenerate = async () => {
     if (!selection) return;
@@ -248,8 +252,11 @@ function App() {
                   </div>
                   {showBuildings && (
                     <>
-                      <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Scale: {buildingVerticalScale}x</label>
+                      <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Vertical Scale: {buildingVerticalScale}x</label>
                       <input type="range" min="0.1" max="5" step="0.1" value={buildingVerticalScale} onChange={(e) => setBuildingVerticalScale(Number(e.target.value))} style={{ width: '100%' }} />
+                      
+                      <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Horizontal Scale: {buildingHorizontalScale}x</label>
+                      <input type="range" min="0.1" max="2.0" step="0.1" value={buildingHorizontalScale} onChange={(e) => setBuildingHorizontalScale(Number(e.target.value))} style={{ width: '100%' }} />
                     </>
                   )}
                 </div>

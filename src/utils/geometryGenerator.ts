@@ -415,7 +415,7 @@ export const generateTerrainGeometry = (
 export const createBuildingGeometries = (
   buildings: BuildingFeature[], 
   terrainGeometry: THREE.BufferGeometry,
-  options: { verticalScale?: number } = {}
+  options: { verticalScale?: number; horizontalScale?: number } = {}
 ): THREE.Group => {
   const group = new THREE.Group();
   const gridData = terrainGeometry.userData.grid;
@@ -431,8 +431,9 @@ export const createBuildingGeometries = (
 
   // Use provided vertical scale or fallback to terrain's scale
   const buildingVerticalScale = options.verticalScale !== undefined ? options.verticalScale : terrainVerticalScale;
+  const buildingHorizontalScale = options.horizontalScale !== undefined ? options.horizontalScale : 1.0;
 
-  console.log(`Generating geometry for ${buildings.length} buildings. Scale: ${buildingVerticalScale}`);
+  console.log(`Generating geometry for ${buildings.length} buildings. V-Scale: ${buildingVerticalScale}, H-Scale: ${buildingHorizontalScale}`);
   let placedCount = 0;
 
   buildings.forEach(building => {
@@ -442,15 +443,34 @@ export const createBuildingGeometries = (
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       polygons.forEach((polygonCoords: any) => {
-          // 1. Create Shape
-          const shape = new THREE.Shape();
           const outerRing = polygonCoords[0];
-          
           if (!outerRing || outerRing.length < 3) return;
 
-          shape.moveTo(outerRing[0][0], outerRing[0][1]);
+          // Calculate Center first (needed for scaling)
+          let cx = 0, cy = 0;
+          for (const p of outerRing) {
+              cx += p[0];
+              cy += p[1];
+          }
+          cx /= outerRing.length;
+          cy /= outerRing.length;
+
+          // Helper to scale point
+          const scalePt = (p: number[]) => {
+              return [
+                  cx + (p[0] - cx) * buildingHorizontalScale,
+                  cy + (p[1] - cy) * buildingHorizontalScale
+              ];
+          };
+
+          // 1. Create Shape with scaled coordinates
+          const shape = new THREE.Shape();
+          const p0 = scalePt(outerRing[0]);
+
+          shape.moveTo(p0[0], p0[1]);
           for (let i = 1; i < outerRing.length; i++) {
-              shape.lineTo(outerRing[i][0], outerRing[i][1]);
+              const pi = scalePt(outerRing[i]);
+              shape.lineTo(pi[0], pi[1]);
           }
 
           // Handle holes (inner rings)
@@ -458,32 +478,29 @@ export const createBuildingGeometries = (
               for (let i = 1; i < polygonCoords.length; i++) {
                   const holeCoords = polygonCoords[i];
                   const holePath = new THREE.Path();
-                  holePath.moveTo(holeCoords[0][0], holeCoords[0][1]);
+                  const h0 = scalePt(holeCoords[0]);
+                  holePath.moveTo(h0[0], h0[1]);
                   for (let j = 1; j < holeCoords.length; j++) {
-                      holePath.lineTo(holeCoords[j][0], holeCoords[j][1]);
+                      const hj = scalePt(holeCoords[j]);
+                      holePath.lineTo(hj[0], hj[1]);
                   }
                   shape.holes.push(holePath);
               }
           }
 
-          // 2. Check bounds and Calculate Center
-          // Check if ANY point is outside the terrain bounds
-          let cx = 0, cy = 0;
+          // 2. Check bounds
+          // Check if ANY point of the SCALED outer ring is outside the terrain bounds
           let isFullyInside = true;
 
           for (const p of outerRing) {
-              if (p[0] < minX || p[0] > maxX || p[1] < minY || p[1] > maxY) {
+              const sp = scalePt(p);
+              if (sp[0] < minX || sp[0] > maxX || sp[1] < minY || sp[1] > maxY) {
                   isFullyInside = false;
                   break;
               }
-              cx += p[0];
-              cy += p[1];
           }
 
           if (!isFullyInside) return;
-
-          cx /= outerRing.length;
-          cy /= outerRing.length;
           
           // 3. Grid Lookup for Elevation
           // Map to grid index
