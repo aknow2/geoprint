@@ -189,195 +189,116 @@ function App() {
           {selection && (
             <div style={{
               position: 'absolute',
-              bottom: '10px',
+              top: '10px',
               left: '10px',
-              backgroundColor: 'rgba(255,255,255,0.9)',
+              bottom: '10px',
+              width: '320px',
+              backgroundColor: 'rgba(255,255,255,0.95)',
               padding: '15px',
               borderRadius: '8px',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-              color: 'black',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+              color: '#333',
               textAlign: 'left',
-              zIndex: 10
+              zIndex: 10,
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: 'calc(100vh - 100px)'
             }}>
-              <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem' }}>Selected Area</h3>
-              <div style={{ fontSize: '0.9rem', marginBottom: '10px' }}>
-                <p style={{ margin: '2px 0' }}>N: {selection.north.toFixed(4)}</p>
-                <p style={{ margin: '2px 0' }}>S: {selection.south.toFixed(4)}</p>
-                <p style={{ margin: '2px 0' }}>E: {selection.east.toFixed(4)}</p>
-                <p style={{ margin: '2px 0' }}>W: {selection.west.toFixed(4)}</p>
-              </div>
-              
-              {error && <p style={{ color: 'red', fontSize: '0.8rem' }}>{error}</p>}
-              
-              <div style={{ marginBottom: '10px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
-                  Base Height: {baseHeight}m
-                </label>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="20" 
-                  step="1" 
-                  value={baseHeight} 
-                  onChange={(e) => setBaseHeight(Number(e.target.value))}
-                  style={{ width: '100%' }}
-                />
-                
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
-                  Vertical Scale: {verticalScale}x
-                </label>
-                <input 
-                  type="range" 
-                  min="0.1" 
-                  max="5" 
-                  step="0.1" 
-                  value={verticalScale} 
-                  onChange={(e) => setVerticalScale(Number(e.target.value))}
-                  style={{ width: '100%' }}
-                />
-
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
-                  Building Scale: {buildingVerticalScale}x
-                </label>
-                <input 
-                  type="range" 
-                  min="0.1" 
-                  max="5" 
-                  step="0.1" 
-                  value={buildingVerticalScale} 
-                  onChange={(e) => setBuildingVerticalScale(Number(e.target.value))}
-                  style={{ width: '100%' }}
-                />
-
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
-                  Road Scale: {roadScale}x
-                </label>
-                <input 
-                  type="range" 
-                  min="0.1" 
-                  max="5" 
-                  step="0.1" 
-                  value={roadScale} 
-                  onChange={(e) => setRoadScale(Number(e.target.value))}
-                  style={{ width: '100%' }}
-                />
-
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
-                  Water Depth: {waterDepth}m
-                </label>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="10" 
-                  step="0.5" 
-                  value={waterDepth} 
-                  onChange={(e) => setWaterDepth(Number(e.target.value))}
-                  style={{ width: '100%' }}
-                />
-
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
-                  GPX Tube Radius: {gpxRadius}m
-                </label>
-                <input 
-                  type="range" 
-                  min="0.5" 
-                  max="30.0" 
-                  step="0.5" 
-                  value={gpxRadius} 
-                  onChange={(e) => setGpxRadius(Number(e.target.value))}
-                  style={{ width: '100%' }}
-                />
-
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
-                  GPX Height Offset: {gpxOffset}m
-                </label>
-                <input 
-                  type="range" 
-                  min="-100" 
-                  max="100" 
-                  step="1" 
-                  value={gpxOffset} 
-                  onChange={(e) => setGpxOffset(Number(e.target.value))}
-                  style={{ width: '100%' }}
-                />
-
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
-                  Smoothing: {smoothing}
-                </label>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="10" 
-                  step="1" 
-                  value={smoothing} 
-                  onChange={(e) => setSmoothing(Number(e.target.value))}
-                  style={{ width: '100%' }}
-                />
-                
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>
-                    Max Height: {isUnlimitedHeight ? 'Unlimited' : `${maxHeight}m`}
-                  </label>
-                  <label style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={isUnlimitedHeight} 
-                      onChange={(e) => setIsUnlimitedHeight(e.target.checked)}
-                      style={{ marginRight: '4px' }}
-                    />
-                    No Limit
-                  </label>
+              <div style={{ flexShrink: 0 }}>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem' }}>Settings</h3>
+                <div style={{ fontSize: '0.85rem', marginBottom: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+                  <span>N: {selection.north.toFixed(4)}</span>
+                  <span>S: {selection.south.toFixed(4)}</span>
+                  <span>E: {selection.east.toFixed(4)}</span>
+                  <span>W: {selection.west.toFixed(4)}</span>
                 </div>
-                <input 
-                  type="range" 
-                  min="50" 
-                  max="1000" 
-                  step="50" 
-                  value={maxHeight} 
-                  disabled={isUnlimitedHeight}
-                  onChange={(e) => setMaxHeight(Number(e.target.value))}
-                  style={{ width: '100%', opacity: isUnlimitedHeight ? 0.5 : 1 }}
-                />
-                
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '5px', marginTop: '10px', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={showBuildings} 
-                    onChange={(e) => setShowBuildings(e.target.checked)}
-                    style={{ marginRight: '5px' }}
-                  />
-                  Show Buildings
-                </label>
+                {error && <p style={{ color: 'red', fontSize: '0.8rem' }}>{error}</p>}
+              </div>
 
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '5px', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={showRoads} 
-                    onChange={(e) => setShowRoads(e.target.checked)}
-                    style={{ marginRight: '5px' }}
-                  />
-                  Show Roads
-                </label>
+              <div style={{ overflowY: 'auto', flexGrow: 1, paddingRight: '5px' }}>
+              
+                              {/* Terrain Section */}
+                <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.03)', borderRadius: '4px' }}>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', borderBottom: '1px solid #ddd', paddingBottom: '4px' }}>Terrain</h4>
+                  
+                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Base Height: {baseHeight}m</label>
+                  <input type="range" min="0" max="20" step="1" value={baseHeight} onChange={(e) => setBaseHeight(Number(e.target.value))} style={{ width: '100%' }} />
+                  
+                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Vertical Scale: {verticalScale}x</label>
+                  <input type="range" min="0.1" max="5" step="0.1" value={verticalScale} onChange={(e) => setVerticalScale(Number(e.target.value))} style={{ width: '100%' }} />
 
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '5px', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={showWater} 
-                    onChange={(e) => setShowWater(e.target.checked)}
-                    style={{ marginRight: '5px' }}
-                  />
-                  Show Water
-                </label>
+                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Smoothing: {smoothing}</label>
+                  <input type="range" min="0" max="10" step="1" value={smoothing} onChange={(e) => setSmoothing(Number(e.target.value))} style={{ width: '100%' }} />
 
-                <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '5px', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={showGpx} 
-                    onChange={(e) => setShowGpx(e.target.checked)}
-                    style={{ marginRight: '5px' }}
-                  />
-                  Show GPX
-                </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem' }}>Max Height: {isUnlimitedHeight ? 'Unlimited' : `${maxHeight}m`}</label>
+                    <label style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={isUnlimitedHeight} onChange={(e) => setIsUnlimitedHeight(e.target.checked)} style={{ marginRight: '4px' }} />
+                      No Limit
+                    </label>
+                  </div>
+                  <input type="range" min="50" max="1000" step="50" value={maxHeight} disabled={isUnlimitedHeight} onChange={(e) => setMaxHeight(Number(e.target.value))} style={{ width: '100%', opacity: isUnlimitedHeight ? 0.5 : 1 }} />
+                </div>
+
+                {/* Buildings Section */}
+                <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.03)', borderRadius: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #ddd', paddingBottom: '4px', marginBottom: '8px' }}>
+                    <h4 style={{ margin: '0', fontSize: '0.9rem' }}>Buildings</h4>
+                    <input type="checkbox" checked={showBuildings} onChange={(e) => setShowBuildings(e.target.checked)} />
+                  </div>
+                  {showBuildings && (
+                    <>
+                      <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Scale: {buildingVerticalScale}x</label>
+                      <input type="range" min="0.1" max="5" step="0.1" value={buildingVerticalScale} onChange={(e) => setBuildingVerticalScale(Number(e.target.value))} style={{ width: '100%' }} />
+                    </>
+                  )}
+                </div>
+
+                {/* Roads Section */}
+                <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.03)', borderRadius: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #ddd', paddingBottom: '4px', marginBottom: '8px' }}>
+                    <h4 style={{ margin: '0', fontSize: '0.9rem' }}>Roads</h4>
+                    <input type="checkbox" checked={showRoads} onChange={(e) => setShowRoads(e.target.checked)} />
+                  </div>
+                  {showRoads && (
+                    <>
+                      <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Width Scale: {roadScale}x</label>
+                      <input type="range" min="0.1" max="5" step="0.1" value={roadScale} onChange={(e) => setRoadScale(Number(e.target.value))} style={{ width: '100%' }} />
+                    </>
+                  )}
+                </div>
+
+                {/* Water Section */}
+                <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.03)', borderRadius: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #ddd', paddingBottom: '4px', marginBottom: '8px' }}>
+                    <h4 style={{ margin: '0', fontSize: '0.9rem' }}>Water</h4>
+                    <input type="checkbox" checked={showWater} onChange={(e) => setShowWater(e.target.checked)} />
+                  </div>
+                  {showWater && (
+                    <>
+                      <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Depth: {waterDepth}m</label>
+                      <input type="range" min="0" max="10" step="0.5" value={waterDepth} onChange={(e) => setWaterDepth(Number(e.target.value))} style={{ width: '100%' }} />
+                    </>
+                  )}
+                </div>
+
+                {/* GPX Section */}
+                <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.03)', borderRadius: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #ddd', paddingBottom: '4px', marginBottom: '8px' }}>
+                    <h4 style={{ margin: '0', fontSize: '0.9rem' }}>GPX Track</h4>
+                    <input type="checkbox" checked={showGpx} onChange={(e) => setShowGpx(e.target.checked)} />
+                  </div>
+                  {showGpx && (
+                    <>
+                      <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Tube Radius: {gpxRadius}m</label>
+                      <input type="range" min="0.5" max="30.0" step="0.5" value={gpxRadius} onChange={(e) => setGpxRadius(Number(e.target.value))} style={{ width: '100%' }} />
+                      
+                      <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Height Offset: {gpxOffset}m</label>
+                      <input type="range" min="-100" max="100" step="1" value={gpxOffset} onChange={(e) => setGpxOffset(Number(e.target.value))} style={{ width: '100%' }} />
+                    </>
+                  )}
+                </div>
+
               </div>
 
               <button 
