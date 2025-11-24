@@ -2,13 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as maptilersdk from '@maptiler/sdk';
 import '@maptiler/sdk/dist/maptiler-sdk.css';
 import { getMapTilerKey } from '../config';
-import type { BoundingBox } from '../types';
+import { parseGpx } from '../utils/gpxParser';
+import type { BoundingBox, GpxTrack } from '../types';
 
 interface MapSelectorProps {
   onSelectionChange: (bbox: BoundingBox) => void;
+  onGpxLoaded?: (track: GpxTrack) => void;
 }
 
-const MapSelector: React.FC<MapSelectorProps> = ({ onSelectionChange }) => {
+const MapSelector: React.FC<MapSelectorProps> = ({ onSelectionChange, onGpxLoaded }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maptilersdk.Map | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -53,6 +55,55 @@ const MapSelector: React.FC<MapSelectorProps> = ({ onSelectionChange }) => {
         type: 'FeatureCollection',
         features: feature ? [feature] : []
       });
+    }
+  };
+
+  const renderGpxTrack = (track: GpxTrack) => {
+    if (!map.current) return;
+    
+    const features = track.segments.map(segment => ({
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: segment.map(pt => [pt.lon, pt.lat])
+      },
+      properties: {}
+    }));
+
+    const source = map.current.getSource('gpx-track') as maptilersdk.GeoJSONSource;
+    if (source) {
+      source.setData({
+        type: 'FeatureCollection',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        features: features as any
+      });
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const track = parseGpx(text);
+      
+      if (onGpxLoaded) {
+        onGpxLoaded(track);
+      }
+
+      renderGpxTrack(track);
+      
+      if (track.segments.length > 0 && track.segments[0].length > 0) {
+        const firstPoint = track.segments[0][0];
+        map.current?.flyTo({
+          center: [firstPoint.lon, firstPoint.lat],
+          zoom: 14
+        });
+      }
+    } catch (error) {
+      console.error('Failed to parse GPX', error);
+      alert('Failed to parse GPX file');
     }
   };
 
@@ -114,6 +165,25 @@ const MapSelector: React.FC<MapSelectorProps> = ({ onSelectionChange }) => {
           paint: {
             'line-color': '#088',
             'line-width': 2
+          }
+        });
+
+        // Add GPX track source and layer
+        map.current.addSource('gpx-track', {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: []
+          }
+        });
+
+        map.current.addLayer({
+          id: 'gpx-track-line',
+          type: 'line',
+          source: 'gpx-track',
+          paint: {
+            'line-color': '#ff0000',
+            'line-width': 4
           }
         });
       });
@@ -178,6 +248,25 @@ const MapSelector: React.FC<MapSelectorProps> = ({ onSelectionChange }) => {
       >
         {isSelectionMode ? 'Cancel Selection' : 'Select Area'}
       </button>
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        left: '150px',
+        zIndex: 1,
+        backgroundColor: 'white',
+        padding: '10px',
+        borderRadius: '4px',
+        border: '1px solid #ccc'
+      }}>
+        <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <span>Import GPX:</span>
+          <input
+            type="file"
+            accept=".gpx"
+            onChange={handleFileUpload}
+          />
+        </label>
+      </div>
     </div>
   );
 };

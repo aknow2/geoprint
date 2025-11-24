@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { ContourSegment } from './tileParser';
-import type { BoundingBox, BuildingFeature, RoadFeature, WaterFeature } from '../types';
+import type { BoundingBox, BuildingFeature, RoadFeature, WaterFeature, GpxTrack } from '../types';
 
 // Helper for point to segment distance
 function distToSegmentSquared(p: {x:number, y:number}, v: {x:number, y:number}, w: {x:number, y:number}) {
@@ -403,7 +403,9 @@ export const generateTerrainGeometry = (
       minX, maxX, minY, maxY,
       gridX, gridY,
       minElevation,
-      verticalScale
+      verticalScale,
+      baseHeight,
+      center // Save center for coordinate conversion
     }
   };
 
@@ -413,7 +415,7 @@ export const generateTerrainGeometry = (
 export const createBuildingGeometries = (
   buildings: BuildingFeature[], 
   terrainGeometry: THREE.BufferGeometry,
-  options: { verticalScale?: number } = {}
+  options: { verticalScale?: number; horizontalScale?: number } = {}
 ): THREE.Group => {
   const group = new THREE.Group();
   const gridData = terrainGeometry.userData.grid;
@@ -429,8 +431,9 @@ export const createBuildingGeometries = (
 
   // Use provided vertical scale or fallback to terrain's scale
   const buildingVerticalScale = options.verticalScale !== undefined ? options.verticalScale : terrainVerticalScale;
+  const buildingHorizontalScale = options.horizontalScale !== undefined ? options.horizontalScale : 1.0;
 
-  console.log(`Generating geometry for ${buildings.length} buildings. Scale: ${buildingVerticalScale}`);
+  console.log(`Generating geometry for ${buildings.length} buildings. V-Scale: ${buildingVerticalScale}, H-Scale: ${buildingHorizontalScale}`);
   let placedCount = 0;
 
   buildings.forEach(building => {
@@ -440,15 +443,34 @@ export const createBuildingGeometries = (
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       polygons.forEach((polygonCoords: any) => {
-          // 1. Create Shape
-          const shape = new THREE.Shape();
           const outerRing = polygonCoords[0];
-          
           if (!outerRing || outerRing.length < 3) return;
 
-          shape.moveTo(outerRing[0][0], outerRing[0][1]);
+          // Calculate Center first (needed for scaling)
+          let cx = 0, cy = 0;
+          for (const p of outerRing) {
+              cx += p[0];
+              cy += p[1];
+          }
+          cx /= outerRing.length;
+          cy /= outerRing.length;
+
+          // Helper to scale point
+          const scalePt = (p: number[]) => {
+              return [
+                  cx + (p[0] - cx) * buildingHorizontalScale,
+                  cy + (p[1] - cy) * buildingHorizontalScale
+              ];
+          };
+
+          // 1. Create Shape with scaled coordinates
+          const shape = new THREE.Shape();
+          const p0 = scalePt(outerRing[0]);
+
+          shape.moveTo(p0[0], p0[1]);
           for (let i = 1; i < outerRing.length; i++) {
-              shape.lineTo(outerRing[i][0], outerRing[i][1]);
+              const pi = scalePt(outerRing[i]);
+              shape.lineTo(pi[0], pi[1]);
           }
 
           // Handle holes (inner rings)
@@ -456,32 +478,29 @@ export const createBuildingGeometries = (
               for (let i = 1; i < polygonCoords.length; i++) {
                   const holeCoords = polygonCoords[i];
                   const holePath = new THREE.Path();
-                  holePath.moveTo(holeCoords[0][0], holeCoords[0][1]);
+                  const h0 = scalePt(holeCoords[0]);
+                  holePath.moveTo(h0[0], h0[1]);
                   for (let j = 1; j < holeCoords.length; j++) {
-                      holePath.lineTo(holeCoords[j][0], holeCoords[j][1]);
+                      const hj = scalePt(holeCoords[j]);
+                      holePath.lineTo(hj[0], hj[1]);
                   }
                   shape.holes.push(holePath);
               }
           }
 
-          // 2. Check bounds and Calculate Center
-          // Check if ANY point is outside the terrain bounds
-          let cx = 0, cy = 0;
+          // 2. Check bounds
+          // Check if ANY point of the SCALED outer ring is outside the terrain bounds
           let isFullyInside = true;
 
           for (const p of outerRing) {
-              if (p[0] < minX || p[0] > maxX || p[1] < minY || p[1] > maxY) {
+              const sp = scalePt(p);
+              if (sp[0] < minX || sp[0] > maxX || sp[1] < minY || sp[1] > maxY) {
                   isFullyInside = false;
                   break;
               }
-              cx += p[0];
-              cy += p[1];
           }
 
           if (!isFullyInside) return;
-
-          cx /= outerRing.length;
-          cy /= outerRing.length;
           
           // 3. Grid Lookup for Elevation
           // Map to grid index
@@ -788,6 +807,205 @@ export const createWaterGeometries = (
       });
       */
     }
+  });
+
+  return group;
+};
+
+export const createGpxGeometries = (
+  track: GpxTrack,
+  terrainGeometry: THREE.BufferGeometry,
+  options: { radius?: number; minClearance?: number; offset?: number } = {}
+): THREE.Group => {
+  const group = new THREE.Group();
+  const gridData = terrainGeometry.userData.grid;
+
+  if (!gridData) {
+    console.warn("Terrain geometry missing grid data");
+    return group;
+  }
+
+  const { elevations, minX, maxX, minY, maxY, gridX, gridY, minElevation, verticalScale, center, baseHeight } = gridData;
+  const rangeX = maxX - minX;
+  const rangeY = maxY - minY;
+  
+  const radius = options.radius || 1.0;
+  const minClearance = options.minClearance || 5.0;
+  const offset = options.offset || 0;
+
+  const getElevation = (x: number, y: number): number => {
+      const ix = Math.floor((x - minX) / rangeX * (gridX - 1));
+      const iy = Math.floor((y - minY) / rangeY * (gridY - 1));
+      
+      if (ix >= 0 && ix < gridX && iy >= 0 && iy < gridY) {
+          return elevations[iy * gridX + ix];
+      }
+      return 0; // Fallback
+  };
+
+  track.segments.forEach(segment => {
+    const pathData: { pos: THREE.Vector3, terrainH: number }[] = [];
+
+    segment.forEach(pt => {
+      // Convert lat/lon to meters relative to center
+      const x = (pt.lon - center.lng) * 111320 * Math.cos(center.lat * Math.PI / 180);
+      const y = (pt.lat - center.lat) * 111320;
+
+      // Check bounds
+      if (x < minX || x > maxX || y < minY || y > maxY) return;
+
+      const terrainH = getElevation(x, y);
+      
+      // Calculate Z
+      let z = 0;
+      if (pt.ele !== undefined) {
+        // Convert absolute ele to relative Z
+        const gpxZ = (pt.ele - minElevation) * verticalScale + (baseHeight || 2);
+        z = Math.max(gpxZ, terrainH + minClearance);
+      } else {
+        z = terrainH + minClearance + 10; // Default offset if no ele
+      }
+      
+      // Apply user offset
+      z += offset;
+      
+      pathData.push({ pos: new THREE.Vector3(x, y, z), terrainH });
+    });
+
+    if (pathData.length < 2) return;
+
+    const points = pathData.map(d => d.pos);
+
+    // Create Tube
+    const curve = new THREE.CatmullRomCurve3(points);
+    const tubeGeo = new THREE.TubeGeometry(curve, points.length * 2, radius, 8, false);
+    const tubeMesh = new THREE.Mesh(tubeGeo, new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+    group.add(tubeMesh);
+
+    // Create Thick Wall
+    const wallVertices: number[] = [];
+    const wallIndices: number[] = [];
+    const wallThickness = radius * (2/3);
+    const halfThick = wallThickness / 2;
+
+    for (let i = 0; i < pathData.length; i++) {
+        const curr = pathData[i];
+        const x = curr.pos.x;
+        const y = curr.pos.y;
+        // Embed wall top into tube center to ensure solid intersection
+        const zTop = curr.pos.z; 
+
+        // Calculate Tangent
+        let tx = 0, ty = 0;
+        if (i === 0) {
+            const next = pathData[i+1];
+            tx = next.pos.x - x;
+            ty = next.pos.y - y;
+        } else if (i === pathData.length - 1) {
+            const prev = pathData[i-1];
+            tx = x - prev.pos.x;
+            ty = y - prev.pos.y;
+        } else {
+            const prev = pathData[i-1];
+            const next = pathData[i+1];
+            // Average tangent
+            const v1x = x - prev.pos.x;
+            const v1y = y - prev.pos.y;
+            const v2x = next.pos.x - x;
+            const v2y = next.pos.y - y;
+            
+            const len1 = Math.sqrt(v1x*v1x + v1y*v1y) || 1;
+            const len2 = Math.sqrt(v2x*v2x + v2y*v2y) || 1;
+            tx = (v1x/len1) + (v2x/len2);
+            ty = (v1y/len1) + (v2y/len2);
+        }
+
+        // Normalize Tangent
+        const len = Math.sqrt(tx*tx + ty*ty);
+        if (len > 0) {
+            tx /= len;
+            ty /= len;
+        } else {
+            tx = 1; ty = 0; // Default
+        }
+
+        // Normal (Rotate -90 deg: x -> y, y -> -x)
+        const nx = -ty;
+        const ny = tx;
+
+        // Calculate 4 corners
+        // Left (Normal direction)
+        const lx = x + nx * halfThick;
+        const ly = y + ny * halfThick;
+        // Clamp bottom to not exceed top (avoid inversion)
+        const lzBot = Math.min(zTop, getElevation(lx, ly));
+
+        // Right (Opposite Normal)
+        const rx = x - nx * halfThick;
+        const ry = y - ny * halfThick;
+        const rzBot = Math.min(zTop, getElevation(rx, ry));
+
+        // Vertices for this slice
+        // 0: Top Left
+        wallVertices.push(lx, ly, zTop);
+        // 1: Bottom Left
+        wallVertices.push(lx, ly, lzBot);
+        // 2: Top Right
+        wallVertices.push(rx, ry, zTop);
+        // 3: Bottom Right
+        wallVertices.push(rx, ry, rzBot);
+
+        // Indices
+        if (i < pathData.length - 1) {
+            const base = i * 4;
+            const nextBase = (i + 1) * 4;
+
+            // Left Face (0, 1, next1, next0) -> (TL, BL, NextBL, NextTL)
+            // Normal: Left
+            wallIndices.push(base + 0, base + 1, nextBase + 1);
+            wallIndices.push(base + 0, nextBase + 1, nextBase + 0);
+
+            // Right Face (2, 3, next3, next2) -> (TR, BR, NextBR, NextTR)
+            // Normal: Right
+            wallIndices.push(base + 2, nextBase + 3, base + 3);
+            wallIndices.push(base + 2, nextBase + 2, nextBase + 3);
+
+            // Top Face (0, 2, next2, next0) -> (TL, TR, NextTR, NextTL)
+            // Normal: Up
+            wallIndices.push(base + 0, base + 2, nextBase + 2);
+            wallIndices.push(base + 0, nextBase + 2, nextBase + 0);
+
+            // Bottom Face (1, 3, next3, next1) -> (BL, BR, NextBR, NextBL)
+            // Normal: Down
+            wallIndices.push(base + 1, nextBase + 1, nextBase + 3);
+            wallIndices.push(base + 1, nextBase + 3, base + 3);
+        }
+    }
+
+    // Start Cap (i=0): 0, 1, 3, 2 (TL, BL, BR, TR)
+    // Normal: Back
+    const startBase = 0;
+    wallIndices.push(startBase + 0, startBase + 1, startBase + 3);
+    wallIndices.push(startBase + 0, startBase + 3, startBase + 2);
+
+    // End Cap (i=last): TL, BL, BR, TR (Opposite winding)
+    // Normal: Forward
+    const endBase = (pathData.length - 1) * 4;
+    wallIndices.push(endBase + 0, endBase + 3, endBase + 1);
+    wallIndices.push(endBase + 0, endBase + 2, endBase + 3);
+
+    const wallGeo = new THREE.BufferGeometry();
+    wallGeo.setAttribute('position', new THREE.Float32BufferAttribute(wallVertices, 3));
+    wallGeo.setIndex(wallIndices);
+    wallGeo.computeVertexNormals();
+    
+    const wallMesh = new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ 
+      color: 0xffaaaa, 
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.8
+    }));
+    group.add(wallMesh);
   });
 
   return group;

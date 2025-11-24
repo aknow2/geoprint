@@ -55,6 +55,7 @@
 - [x] T022 Add error handling for network failures and invalid selections in `src/App.tsx`
 - [x] T023 Implement polygon count check/warning in `src/utils/geometryGenerator.ts`
 - [x] T024 Optimize mobile responsiveness for map and canvas in `src/index.css`
+- [x] T025 Refactor Settings UI: Group parameters and make panel scrollable in `src/App.tsx`
 
 ## Dependencies
 
