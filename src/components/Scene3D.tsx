@@ -21,6 +21,7 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, road
   const roadsRef = useRef<THREE.Group | null>(null);
   const waterRef = useRef<THREE.Group | null>(null);
   const gpxRef = useRef<THREE.Group | null>(null);
+  const selectedObjectRef = useRef<{ mesh: THREE.Mesh, originalMaterial: THREE.Material | THREE.Material[] } | null>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -78,11 +79,109 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, road
     };
     window.addEventListener('resize', handleResize);
 
+    // Interaction
+    let downTime = 0;
+    const downPos = new THREE.Vector2();
+
+    const onPointerDown = (e: PointerEvent) => {
+      downTime = performance.now();
+      downPos.set(e.clientX, e.clientY);
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      const upTime = performance.now();
+      const moveDist = downPos.distanceTo(new THREE.Vector2(e.clientX, e.clientY));
+      
+      if (moveDist < 5 && (upTime - downTime) < 300) {
+        handleClick(e);
+      }
+    };
+
+    const handleClick = (event: PointerEvent) => {
+      if (!cameraRef.current || !sceneRef.current || !mountRef.current) return;
+
+      const rect = mountRef.current.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1
+      );
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, cameraRef.current);
+
+      const interactableObjects: THREE.Object3D[] = [];
+      if (buildingsRef.current) interactableObjects.push(buildingsRef.current);
+      if (roadsRef.current) interactableObjects.push(roadsRef.current);
+      if (waterRef.current) interactableObjects.push(waterRef.current);
+      
+      const intersects = raycaster.intersectObjects(interactableObjects, true);
+
+      if (intersects.length > 0) {
+        // Find the first mesh
+        const hit = intersects.find(i => i.object instanceof THREE.Mesh);
+        if (!hit) return;
+        
+        const mesh = hit.object as THREE.Mesh;
+
+        if (selectedObjectRef.current?.mesh === mesh) {
+            return; // Already selected
+        }
+
+        // Restore previous
+        if (selectedObjectRef.current) {
+            selectedObjectRef.current.mesh.material = selectedObjectRef.current.originalMaterial;
+        }
+
+        // Select new
+        const originalMaterial = mesh.material;
+        
+        // Create highlight material
+        let highlightMaterial;
+        if (Array.isArray(originalMaterial)) {
+             highlightMaterial = (originalMaterial[0] as THREE.MeshStandardMaterial).clone();
+        } else {
+             highlightMaterial = (originalMaterial as THREE.MeshStandardMaterial).clone();
+        }
+        highlightMaterial.color.setHex(0xff0000);
+        
+        mesh.material = highlightMaterial;
+        
+        selectedObjectRef.current = {
+            mesh: mesh,
+            originalMaterial: originalMaterial
+        };
+        
+      } else {
+        // Deselect
+        if (selectedObjectRef.current) {
+            selectedObjectRef.current.mesh.material = selectedObjectRef.current.originalMaterial;
+            selectedObjectRef.current = null;
+        }
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedObjectRef.current) {
+        const mesh = selectedObjectRef.current.mesh;
+        if (mesh.parent) {
+          mesh.parent.remove(mesh);
+        }
+        selectedObjectRef.current = null;
+      }
+    };
+
+    renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    renderer.domElement.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('keydown', handleKeyDown);
+
     const mountNode = mountRef.current;
 
     // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('keydown', handleKeyDown);
+      renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      renderer.domElement.removeEventListener('pointerup', onPointerUp);
       if (mountNode) {
         mountNode.removeChild(renderer.domElement);
       }

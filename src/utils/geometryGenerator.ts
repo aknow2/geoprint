@@ -45,6 +45,7 @@ export const generateTerrainGeometry = (
     smoothing?: number; // Smoothing iterations
     waterFeatures?: WaterFeature[]; // Optional water features for carving
     waterDepth?: number; // Depth of water features
+    hideTerrain?: boolean; // Flatten terrain to base height
   } = {}
 ): THREE.BufferGeometry => {
   const {
@@ -53,7 +54,8 @@ export const generateTerrainGeometry = (
     maxHeight = Infinity,
     smoothing = 0,
     waterFeatures = [],
-    waterDepth = 2.0
+    waterDepth = 2.0,
+    hideTerrain = false
   } = options;
   
   // Calculate bounds in meters (relative to center)
@@ -181,11 +183,16 @@ export const generateTerrainGeometry = (
       }
       
       // Apply adjustments
-      let adjustedElevation = rawElevation - minElevation;
-      adjustedElevation *= verticalScale;
-      if (adjustedElevation > maxHeight) {
-          adjustedElevation = maxHeight;
+      let adjustedElevation = 0;
+      
+      if (!hideTerrain) {
+        adjustedElevation = rawElevation - minElevation;
+        adjustedElevation *= verticalScale;
+        if (adjustedElevation > maxHeight) {
+            adjustedElevation = maxHeight;
+        }
       }
+      
       adjustedElevation += baseHeight;
 
       // Apply River Carving (U-Shape)
@@ -405,7 +412,8 @@ export const generateTerrainGeometry = (
       minElevation,
       verticalScale,
       baseHeight,
-      center // Save center for coordinate conversion
+      center, // Save center for coordinate conversion
+      hideTerrain
     }
   };
 
@@ -580,7 +588,7 @@ export const createRoadGeometries = (
       return group;
   }
 
-  const { elevations, minX, maxX, minY, maxY, gridX, gridY } = gridData;
+  const { elevations, minX, maxX, minY, maxY, gridX, gridY, hideTerrain } = gridData;
   const rangeX = maxX - minX;
   const rangeY = maxY - minY;
   
@@ -630,7 +638,9 @@ export const createRoadGeometries = (
               
               if (ele !== null) {
                   // Lift road slightly above terrain
-                  points.push(new THREE.Vector3(x, y, ele + 0.5));
+                  // If hideTerrain is true, use smaller offset (0.1m) as per spec
+                  const zOffset = hideTerrain ? 0.1 : 0.5;
+                  points.push(new THREE.Vector3(x, y, ele + zOffset));
               }
           });
 
@@ -652,12 +662,11 @@ export const createRoadGeometries = (
 
 export const createWaterGeometries = (
   waterFeatures: WaterFeature[],
-  _terrainGeometry: THREE.BufferGeometry,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _options: { widthScale?: number } = {}
+  terrainGeometry: THREE.BufferGeometry,
+  options: { widthScale?: number } = {}
 ): THREE.Group => {
   const group = new THREE.Group();
-  /*
+  
   const gridData = terrainGeometry.userData.grid;
 
   if (!gridData) {
@@ -665,12 +674,10 @@ export const createWaterGeometries = (
       return group;
   }
 
-  const { elevations, minX, maxX, minY, maxY, gridX, gridY } = gridData;
+  const { elevations, minX, maxX, minY, maxY, gridX, gridY, hideTerrain } = gridData;
   const rangeX = maxX - minX;
   const rangeY = maxY - minY;
-  */
-
-  /*
+  
   const getElevation = (x: number, y: number): number | null => {
       const ix = Math.floor((x - minX) / rangeX * (gridX - 1));
       const iy = Math.floor((y - minY) / rangeY * (gridY - 1));
@@ -686,13 +693,11 @@ export const createWaterGeometries = (
     roughness: 0.1, 
     metalness: 0.5 
   });
-  */
-
+  
   waterFeatures.forEach(feature => {
+    /*
     if (feature.type === 'LineString') {
       // Rivers / Streams
-      // User requested to remove tubes as the terrain is already carved.
-      /*
       const lines = feature.geometry.type === 'MultiLineString' 
           ? feature.geometry.coordinates 
           : [feature.geometry.coordinates];
@@ -714,7 +719,9 @@ export const createWaterGeometries = (
                   // The terrain is carved by maxDepth = 2.0 at the center.
                   // So we add 2.0 to the carved elevation to get the surface.
                   // We also add a tiny offset (0.1) to avoid z-fighting with the "banks" if they match perfectly.
-                  points.push(new THREE.Vector3(x, y, ele + 2.0 - 0.1));
+                  // If hideTerrain is true, we just place it slightly above the flat surface (0.1)
+                  const z = hideTerrain ? ele + 0.1 : ele + 2.0 - 0.1;
+                  points.push(new THREE.Vector3(x, y, z));
               }
           });
 
@@ -752,12 +759,9 @@ export const createWaterGeometries = (
           const mesh = new THREE.Mesh(geometry, waterMaterial);
           group.add(mesh);
       });
-      */
 
     } else if (feature.type === 'Polygon') {
       // Lakes
-      // User requested to remove tubes/surfaces as the terrain is already carved.
-      /*
       const polygons = feature.geometry.type === 'MultiPolygon' 
           ? feature.geometry.coordinates 
           : [feature.geometry.coordinates];
@@ -768,6 +772,18 @@ export const createWaterGeometries = (
           const outerRing = polygonCoords[0];
           
           if (!outerRing || outerRing.length < 3) return;
+
+          // Calculate center to find elevation
+          let cx = 0, cy = 0;
+          for (const p of outerRing) {
+              cx += p[0];
+              cy += p[1];
+          }
+          cx /= outerRing.length;
+          cy /= outerRing.length;
+
+          const ele = getElevation(cx, cy);
+          if (ele === null) return;
 
           shape.moveTo(outerRing[0][0], outerRing[0][1]);
           for (let i = 1; i < outerRing.length; i++) {
@@ -786,27 +802,16 @@ export const createWaterGeometries = (
               }
           }
 
-          // Calculate center to find elevation
-          let cx = 0, cy = 0;
-          for (const p of outerRing) {
-              cx += p[0];
-              cy += p[1];
-          }
-          cx /= outerRing.length;
-          cy /= outerRing.length;
-
-          const ele = getElevation(cx, cy);
-          if (ele === null) return;
-
           const geometry = new THREE.ShapeGeometry(shape);
           const mesh = new THREE.Mesh(geometry, waterMaterial);
           
           // Place at elevation + 0.2
+          // If hideTerrain, ele is baseHeight.
           mesh.position.z = ele + 0.2;
           group.add(mesh);
       });
-      */
     }
+    */
   });
 
   return group;
@@ -825,7 +830,7 @@ export const createGpxGeometries = (
     return group;
   }
 
-  const { elevations, minX, maxX, minY, maxY, gridX, gridY, minElevation, verticalScale, center, baseHeight } = gridData;
+  const { elevations, minX, maxX, minY, maxY, gridX, gridY, minElevation, verticalScale, center, baseHeight, hideTerrain } = gridData;
   const rangeX = maxX - minX;
   const rangeY = maxY - minY;
   
@@ -858,7 +863,11 @@ export const createGpxGeometries = (
       
       // Calculate Z
       let z = 0;
-      if (pt.ele !== undefined) {
+      
+      if (hideTerrain) {
+        // Flatten to surface + 0.2m
+        z = terrainH + 0.2;
+      } else if (pt.ele !== undefined) {
         // Convert absolute ele to relative Z
         const gpxZ = (pt.ele - minElevation) * verticalScale + (baseHeight || 2);
         z = Math.max(gpxZ, terrainH + minClearance);

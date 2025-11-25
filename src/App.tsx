@@ -41,6 +41,7 @@ function App() {
   const [smoothing, setSmoothing] = useState(0);
   const [maxHeight, setMaxHeight] = useState(200);
   const [isUnlimitedHeight, setIsUnlimitedHeight] = useState(false);
+  const [hideTerrain, setHideTerrain] = useState(false);
   
   // Cache segments to allow parameter updates without re-fetching
   const [segments, setSegments] = useState<ContourSegment[] | null>(null);
@@ -54,7 +55,8 @@ function App() {
         maxHeight: isUnlimitedHeight ? Infinity : maxHeight,
         smoothing,
         waterFeatures: waterFeatures, // Pass water features for carving
-        waterDepth
+        waterDepth,
+        hideTerrain
       });
       setTerrainGeometry(geometry);
 
@@ -98,7 +100,7 @@ function App() {
         setGpxGroup(null);
       }
     }
-  }, [baseHeight, verticalScale, buildingVerticalScale, buildingHorizontalScale, roadScale, waterDepth, smoothing, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures, waterFeatures, gpxTrack, gpxRadius, gpxOffset]);
+  }, [baseHeight, verticalScale, buildingVerticalScale, buildingHorizontalScale, roadScale, waterDepth, smoothing, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures, waterFeatures, gpxTrack, gpxRadius, gpxOffset, hideTerrain]);
 
   const handleGenerate = async () => {
     if (!selection) return;
@@ -228,20 +230,34 @@ function App() {
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Base Height: {baseHeight}m</label>
                   <input type="range" min="0" max="20" step="1" value={baseHeight} onChange={(e) => setBaseHeight(Number(e.target.value))} style={{ width: '100%' }} />
                   
-                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Vertical Scale: {verticalScale}x</label>
-                  <input type="range" min="0.1" max="5" step="0.1" value={verticalScale} onChange={(e) => setVerticalScale(Number(e.target.value))} style={{ width: '100%' }} />
+                  {!hideTerrain && (
+                    <>
+                      <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Vertical Scale: {verticalScale}x</label>
+                      <input type="range" min="0.1" max="5" step="0.1" value={verticalScale} onChange={(e) => setVerticalScale(Number(e.target.value))} style={{ width: '100%' }} />
 
-                  <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Smoothing: {smoothing}</label>
-                  <input type="range" min="0" max="10" step="1" value={smoothing} onChange={(e) => setSmoothing(Number(e.target.value))} style={{ width: '100%' }} />
+                      <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Smoothing: {smoothing}</label>
+                      <input type="range" min="0" max="10" step="1" value={smoothing} onChange={(e) => setSmoothing(Number(e.target.value))} style={{ width: '100%' }} />
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
-                    <label style={{ display: 'block', fontSize: '0.8rem' }}>Max Height: {isUnlimitedHeight ? 'Unlimited' : `${maxHeight}m`}</label>
-                    <label style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={isUnlimitedHeight} onChange={(e) => setIsUnlimitedHeight(e.target.checked)} style={{ marginRight: '4px' }} />
-                      No Limit
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
+                        <label style={{ display: 'block', fontSize: '0.8rem' }}>Max Height: {isUnlimitedHeight ? 'Unlimited' : `${maxHeight}m`}</label>
+                        <label style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={isUnlimitedHeight} onChange={(e) => setIsUnlimitedHeight(e.target.checked)} style={{ marginRight: '4px' }} />
+                          No Limit
+                        </label>
+                      </div>
+                      <input type="range" min="50" max="1000" step="50" value={maxHeight} disabled={isUnlimitedHeight} onChange={(e) => setMaxHeight(Number(e.target.value))} style={{ width: '100%', opacity: isUnlimitedHeight ? 0.5 : 1 }} />
+                    </>
+                  )}
+                  
+                  <div style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '5px' }}>
+                    <label style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 'bold' }}>
+                      <input type="checkbox" checked={hideTerrain} onChange={(e) => setHideTerrain(e.target.checked)} style={{ marginRight: '4px' }} />
+                      Hide Terrain (Flat Base)
                     </label>
+                    <p style={{ fontSize: '0.7rem', color: '#666', margin: '2px 0 0 20px' }}>
+                      Replaces elevation data with a flat plane. Useful for printing road networks or GPX tracks only.
+                    </p>
                   </div>
-                  <input type="range" min="50" max="1000" step="50" value={maxHeight} disabled={isUnlimitedHeight} onChange={(e) => setMaxHeight(Number(e.target.value))} style={{ width: '100%', opacity: isUnlimitedHeight ? 0.5 : 1 }} />
                 </div>
 
                 {/* Buildings Section */}
@@ -270,7 +286,7 @@ function App() {
                   {showRoads && (
                     <>
                       <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Width Scale: {roadScale}x</label>
-                      <input type="range" min="0.1" max="5" step="0.1" value={roadScale} onChange={(e) => setRoadScale(Number(e.target.value))} style={{ width: '100%' }} />
+                      <input type="range" min="0.1" max="10" step="0.1" value={roadScale} onChange={(e) => setRoadScale(Number(e.target.value))} style={{ width: '100%' }} />
                     </>
                   )}
                 </div>
