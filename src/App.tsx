@@ -35,6 +35,7 @@ function App() {
   const [buildingVerticalScale, setBuildingVerticalScale] = useState(1.5);
   const [buildingHorizontalScale, setBuildingHorizontalScale] = useState(1.0);
   const [roadScale, setRoadScale] = useState(1.0);
+  const [roadHeightScale, setRoadHeightScale] = useState(1.0);
   const [waterDepth, setWaterDepth] = useState(2.0);
   const [gpxRadius, setGpxRadius] = useState(1.0);
   const [gpxOffset, setGpxOffset] = useState(0.0);
@@ -76,7 +77,7 @@ function App() {
       // Generate roads if we have them
       if (roadFeatures.length > 0) {
         console.log("Generating road geometries...");
-        const group = createRoadGeometries(roadFeatures, geometry, { widthScale: roadScale });
+        const group = createRoadGeometries(roadFeatures, geometry, { widthScale: roadScale, heightScale: roadHeightScale });
         setRoadsGroup(group);
       } else {
         setRoadsGroup(null);
@@ -100,7 +101,7 @@ function App() {
         setGpxGroup(null);
       }
     }
-  }, [baseHeight, verticalScale, buildingVerticalScale, buildingHorizontalScale, roadScale, waterDepth, smoothing, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures, waterFeatures, gpxTrack, gpxRadius, gpxOffset, hideTerrain]);
+  }, [baseHeight, verticalScale, buildingVerticalScale, buildingHorizontalScale, roadScale, roadHeightScale, waterDepth, smoothing, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures, waterFeatures, gpxTrack, gpxRadius, gpxOffset, hideTerrain]);
 
   const handleGenerate = async () => {
     if (!selection) return;
@@ -287,6 +288,9 @@ function App() {
                     <>
                       <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Width Scale: {roadScale}x</label>
                       <input type="range" min="0.1" max="10" step="0.1" value={roadScale} onChange={(e) => setRoadScale(Number(e.target.value))} style={{ width: '100%' }} />
+                      
+                      <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Height Scale: {roadHeightScale}x</label>
+                      <input type="range" min="0.1" max="5" step="0.1" value={roadHeightScale} onChange={(e) => setRoadHeightScale(Number(e.target.value))} style={{ width: '100%' }} />
                     </>
                   )}
                 </div>

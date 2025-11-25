@@ -52,7 +52,18 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, road
     // Controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN
+    };
     controlsRef.current = controls;
+
+    // Prevent context menu
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    renderer.domElement.addEventListener('contextmenu', handleContextMenu);
 
     // Lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -182,6 +193,7 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, road
       window.removeEventListener('keydown', handleKeyDown);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      renderer.domElement.removeEventListener('contextmenu', handleContextMenu);
       if (mountNode) {
         mountNode.removeChild(renderer.domElement);
       }

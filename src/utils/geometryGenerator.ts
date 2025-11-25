@@ -578,7 +578,7 @@ export const createBuildingGeometries = (
 export const createRoadGeometries = (
   roads: RoadFeature[],
   terrainGeometry: THREE.BufferGeometry,
-  options: { widthScale?: number } = {}
+  options: { widthScale?: number; heightScale?: number } = {}
 ): THREE.Group => {
   const group = new THREE.Group();
   const gridData = terrainGeometry.userData.grid;
@@ -593,8 +593,9 @@ export const createRoadGeometries = (
   const rangeY = maxY - minY;
   
   const widthScale = options.widthScale !== undefined ? options.widthScale : 1.0;
+  const heightScale = options.heightScale !== undefined ? options.heightScale : 1.0;
 
-  console.log(`Generating geometry for ${roads.length} roads. Width Scale: ${widthScale}`);
+  console.log(`Generating geometry for ${roads.length} roads. Width Scale: ${widthScale}, Height Scale: ${heightScale}`);
 
   const getElevation = (x: number, y: number): number | null => {
       const ix = Math.floor((x - minX) / rangeX * (gridX - 1));
@@ -650,7 +651,27 @@ export const createRoadGeometries = (
           // TubeGeometry(path, tubularSegments, radius, radialSegments, closed)
           // Optimize segments based on length?
           const segments = Math.max(points.length * 5, 64); 
-          const geometry = new THREE.TubeGeometry(curve, segments, radius, 4, false); // 4 radial segments = square profile (diamond)
+          
+          // Rectangular profile (Square)
+          const shape = new THREE.Shape();
+          // Swap width and height as they appear reversed in the render
+          // w maps to vertical height, h maps to horizontal width in this extrusion
+          const w = radius * heightScale; 
+          const h = radius; 
+          
+          shape.moveTo(-w, -h);
+          shape.lineTo(w, -h);
+          shape.lineTo(w, h);
+          shape.lineTo(-w, h);
+          shape.closePath();
+
+          const extrudeSettings = {
+              steps: segments,
+              bevelEnabled: false,
+              extrudePath: curve
+          };
+
+          const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
           
           const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x555555 }));
           group.add(mesh);
