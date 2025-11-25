@@ -252,18 +252,15 @@ const MapSelector: React.FC<MapSelectorProps> = ({ onSelectionChange, onGpxLoade
         position: 'absolute',
         top: '10px',
         left: '150px',
-        zIndex: 1,
-        backgroundColor: 'white',
-        padding: '10px',
-        borderRadius: '4px',
-        border: '1px solid #ccc'
+        zIndex: 1
       }}>
-        <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span>Import GPX:</span>
+        <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: 'rgba(255,255,255,0.7)', padding: '5px', borderRadius: '4px', color: 'black' }}>
+          <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>GPX:</span>
           <input
             type="file"
             accept=".gpx"
             onChange={handleFileUpload}
+            style={{ fontSize: '0.8rem' }}
           />
         </label>
       </div>
