@@ -8,9 +8,17 @@ interface Scene3DProps {
   roadsGroup?: THREE.Group | null;
   waterGroup?: THREE.Group | null;
   gpxGroup?: THREE.Group | null;
+  onObjectSelected?: (id: string | null, type: string | null) => void;
 }
 
-const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, roadsGroup, waterGroup, gpxGroup }) => {
+const Scene3D: React.FC<Scene3DProps> = ({ 
+  terrainGeometry, 
+  buildingsGroup, 
+  roadsGroup, 
+  waterGroup, 
+  gpxGroup,
+  onObjectSelected
+}) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -22,6 +30,13 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, road
   const waterRef = useRef<THREE.Group | null>(null);
   const gpxRef = useRef<THREE.Group | null>(null);
   const selectedObjectRef = useRef<{ mesh: THREE.Mesh, originalMaterial: THREE.Material | THREE.Material[] } | null>(null);
+
+  // Refs for callbacks to avoid re-running setup effect
+  const onObjectSelectedRef = useRef(onObjectSelected);
+
+  useEffect(() => {
+    onObjectSelectedRef.current = onObjectSelected;
+  }, [onObjectSelected]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -161,12 +176,22 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, road
             mesh: mesh,
             originalMaterial: originalMaterial
         };
+
+        // Notify parent
+        if (onObjectSelectedRef.current) {
+          const userData = mesh.userData;
+          onObjectSelectedRef.current(userData.featureId || null, userData.type || null);
+        }
         
       } else {
         // Deselect
         if (selectedObjectRef.current) {
             selectedObjectRef.current.mesh.material = selectedObjectRef.current.originalMaterial;
             selectedObjectRef.current = null;
+        }
+
+        if (onObjectSelectedRef.current) {
+          onObjectSelectedRef.current(null, null);
         }
       }
     };
@@ -178,6 +203,8 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, road
           mesh.parent.remove(mesh);
         }
         selectedObjectRef.current = null;
+
+        if (onObjectSelectedRef.current) onObjectSelectedRef.current(null, null);
       }
     };
 
@@ -200,7 +227,7 @@ const Scene3D: React.FC<Scene3DProps> = ({ terrainGeometry, buildingsGroup, road
       renderer.dispose();
       // Dispose geometry/materials if needed
     };
-  }, []);
+  }, []); // Re-bind if callbacks change
 
   // Update Geometry
   useEffect(() => {

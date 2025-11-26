@@ -578,7 +578,11 @@ export const createBuildingGeometries = (
 export const createRoadGeometries = (
   roads: RoadFeature[],
   terrainGeometry: THREE.BufferGeometry,
-  options: { widthScale?: number; heightScale?: number } = {}
+  options: { 
+    widthScale?: number; 
+    heightScale?: number;
+    overrides?: {[key: string]: { widthScale: number, heightScale: number }}
+  } = {}
 ): THREE.Group => {
   const group = new THREE.Group();
   const gridData = terrainGeometry.userData.grid;
@@ -592,10 +596,11 @@ export const createRoadGeometries = (
   const rangeX = maxX - minX;
   const rangeY = maxY - minY;
   
-  const widthScale = options.widthScale !== undefined ? options.widthScale : 1.0;
-  const heightScale = options.heightScale !== undefined ? options.heightScale : 1.0;
+  const globalWidthScale = options.widthScale !== undefined ? options.widthScale : 1.0;
+  const globalHeightScale = options.heightScale !== undefined ? options.heightScale : 1.0;
+  const overrides = options.overrides || {};
 
-  console.log(`Generating geometry for ${roads.length} roads. Width Scale: ${widthScale}, Height Scale: ${heightScale}`);
+  console.log(`Generating geometry for ${roads.length} roads. Global Width Scale: ${globalWidthScale}, Global Height Scale: ${globalHeightScale}`);
 
   const getElevation = (x: number, y: number): number | null => {
       const ix = Math.floor((x - minX) / rangeX * (gridX - 1));
@@ -625,7 +630,13 @@ export const createRoadGeometries = (
           : [road.geometry.coordinates];
 
       const baseWidth = roadWidths[road.class] || 1;
-      const width = baseWidth * widthScale;
+      
+      // Apply overrides if present, otherwise use global
+      const override = overrides[road.id];
+      const currentWidthScale = override?.widthScale ?? globalWidthScale;
+      const currentHeightScale = override?.heightScale ?? globalHeightScale;
+
+      const width = baseWidth * currentWidthScale;
       const radius = (width / 2) * 1.5; // Slightly wider for visibility
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -656,7 +667,7 @@ export const createRoadGeometries = (
           const shape = new THREE.Shape();
           // Swap width and height as they appear reversed in the render
           // w maps to vertical height, h maps to horizontal width in this extrusion
-          const w = radius * heightScale; 
+          const w = radius * currentHeightScale; 
           const h = radius; 
           
           shape.moveTo(-w, -h);
@@ -674,6 +685,14 @@ export const createRoadGeometries = (
           const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
           
           const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x555555 }));
+          
+          // Add metadata for selection
+          mesh.userData = {
+            type: 'road',
+            featureId: road.id,
+            baseWidth: baseWidth
+          };
+
           group.add(mesh);
       });
   });

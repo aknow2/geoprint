@@ -44,64 +44,101 @@ function App() {
   const [isUnlimitedHeight, setIsUnlimitedHeight] = useState(false);
   const [hideTerrain, setHideTerrain] = useState(false);
   
+  // Selection and Overrides
+  const [selectedRoadId, setSelectedRoadId] = useState<string | null>(null);
+  const [roadOverrides, setRoadOverrides] = useState<{[key: string]: { widthScale: number, heightScale: number }}>({});
+
   // Cache segments to allow parameter updates without re-fetching
   const [segments, setSegments] = useState<ContourSegment[] | null>(null);
 
-  // Effect to update geometry when parameters change
+  // Effect for Terrain
   React.useEffect(() => {
     if (segments && selection) {
+      console.log("Generating terrain geometry...");
       const geometry = generateTerrainGeometry(segments, selection, 100, {
         baseHeight,
         verticalScale,
         maxHeight: isUnlimitedHeight ? Infinity : maxHeight,
         smoothing,
-        waterFeatures: waterFeatures, // Pass water features for carving
+        waterFeatures: waterFeatures,
         waterDepth,
         hideTerrain
       });
       setTerrainGeometry(geometry);
-
-      // Generate buildings if we have them
-      if (buildingFeatures.length > 0) {
-        console.log("Generating building geometries...");
-        const group = createBuildingGeometries(buildingFeatures, geometry, { 
-          verticalScale: buildingVerticalScale,
-          horizontalScale: buildingHorizontalScale
-        });
-        setBuildingsGroup(group);
-      } else {
-        console.log("No building features to generate.");
-        setBuildingsGroup(null);
-      }
-
-      // Generate roads if we have them
-      if (roadFeatures.length > 0) {
-        console.log("Generating road geometries...");
-        const group = createRoadGeometries(roadFeatures, geometry, { widthScale: roadScale, heightScale: roadHeightScale });
-        setRoadsGroup(group);
-      } else {
-        setRoadsGroup(null);
-      }
-
-      // Generate water if we have them
-      if (waterFeatures.length > 0) {
-        console.log("Generating water geometries...");
-        const group = createWaterGeometries(waterFeatures, geometry, { widthScale: roadScale });
-        setWaterGroup(group);
-      } else {
-        setWaterGroup(null);
-      }
-
-      // Generate GPX if we have it
-      if (gpxTrack) {
-        console.log("Generating GPX geometries...");
-        const group = createGpxGeometries(gpxTrack, geometry, { radius: gpxRadius, minClearance: 5.0, offset: gpxOffset });
-        setGpxGroup(group);
-      } else {
-        setGpxGroup(null);
-      }
     }
-  }, [baseHeight, verticalScale, buildingVerticalScale, buildingHorizontalScale, roadScale, roadHeightScale, waterDepth, smoothing, maxHeight, isUnlimitedHeight, segments, selection, buildingFeatures, roadFeatures, waterFeatures, gpxTrack, gpxRadius, gpxOffset, hideTerrain]);
+  }, [segments, selection, baseHeight, verticalScale, maxHeight, isUnlimitedHeight, smoothing, waterFeatures, waterDepth, hideTerrain]);
+
+  // Effect for Buildings
+  React.useEffect(() => {
+    if (buildingFeatures.length > 0 && terrainGeometry) {
+      console.log("Generating building geometries...");
+      const group = createBuildingGeometries(buildingFeatures, terrainGeometry, { 
+        verticalScale: buildingVerticalScale,
+        horizontalScale: buildingHorizontalScale
+      });
+      setBuildingsGroup(group);
+    } else {
+      setBuildingsGroup(null);
+    }
+  }, [buildingFeatures, terrainGeometry, buildingVerticalScale, buildingHorizontalScale]);
+
+  // Effect for Roads
+  React.useEffect(() => {
+    if (roadFeatures.length > 0 && terrainGeometry) {
+      console.log("Generating road geometries...");
+      const group = createRoadGeometries(roadFeatures, terrainGeometry, { 
+        widthScale: roadScale, 
+        heightScale: roadHeightScale,
+        overrides: roadOverrides
+      });
+      setRoadsGroup(group);
+    } else {
+      setRoadsGroup(null);
+    }
+  }, [roadFeatures, terrainGeometry, roadScale, roadHeightScale, roadOverrides]);
+
+  // Effect for Water
+  React.useEffect(() => {
+    if (waterFeatures.length > 0 && terrainGeometry) {
+      console.log("Generating water geometries...");
+      const group = createWaterGeometries(waterFeatures, terrainGeometry, { widthScale: roadScale });
+      setWaterGroup(group);
+    } else {
+      setWaterGroup(null);
+    }
+  }, [waterFeatures, terrainGeometry, roadScale]);
+
+  // Effect for GPX
+  React.useEffect(() => {
+    if (gpxTrack && terrainGeometry) {
+      console.log("Generating GPX geometries...");
+      const group = createGpxGeometries(gpxTrack, terrainGeometry, { radius: gpxRadius, minClearance: 5.0, offset: gpxOffset });
+      setGpxGroup(group);
+    } else {
+      setGpxGroup(null);
+    }
+  }, [gpxTrack, terrainGeometry, gpxRadius, gpxOffset]);
+
+  const handleObjectSelected = (id: string | null, type: string | null) => {
+    if (type === 'road' && id) {
+      setSelectedRoadId(id);
+    } else {
+      setSelectedRoadId(null);
+    }
+  };
+
+  const getSelectedRoadOverrides = () => {
+    if (!selectedRoadId) return { widthScale: roadScale, heightScale: roadHeightScale };
+    return roadOverrides[selectedRoadId] || { widthScale: roadScale, heightScale: roadHeightScale };
+  };
+
+  const updateSelectedRoadOverrides = (width: number, height: number) => {
+    if (!selectedRoadId) return;
+    setRoadOverrides(prev => ({
+      ...prev,
+      [selectedRoadId]: { widthScale: width, heightScale: height }
+    }));
+  };
 
   const handleGenerate = async () => {
     if (!selection) return;
@@ -192,7 +229,62 @@ function App() {
             roadsGroup={showRoads ? roadsGroup : null}
             waterGroup={showWater ? waterGroup : null}
             gpxGroup={showGpx ? gpxGroup : null}
+            onObjectSelected={handleObjectSelected}
           />
+          
+          {selectedRoadId && (
+            <div style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              backgroundColor: 'white',
+              padding: '15px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+              zIndex: 20,
+              width: '250px',
+              color: '#333'
+            }}>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px'}}>
+                <h4 style={{margin: 0}}>Selected Road</h4>
+                <button 
+                  onClick={() => setSelectedRoadId(null)}
+                  style={{border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem'}}
+                >×</button>
+              </div>
+              
+              <div style={{marginBottom: '10px'}}>
+                <label style={{display: 'block', fontSize: '0.8rem', marginBottom: '2px'}}>
+                  Width Scale: {getSelectedRoadOverrides().widthScale.toFixed(1)}x
+                </label>
+                <input 
+                  type="range" 
+                  min="0.1" 
+                  max="10.0" 
+                  step="0.1" 
+                  value={getSelectedRoadOverrides().widthScale}
+                  onChange={(e) => updateSelectedRoadOverrides(parseFloat(e.target.value), getSelectedRoadOverrides().heightScale)}
+                  style={{width: '100%'}}
+                />
+              </div>
+
+              <div style={{marginBottom: '10px'}}>
+                <label style={{display: 'block', fontSize: '0.8rem', marginBottom: '2px'}}>
+                  Height Scale: {getSelectedRoadOverrides().heightScale.toFixed(1)}x
+                </label>
+                <input 
+                  type="range" 
+                  min="0.1" 
+                  max="10.0" 
+                  step="0.1" 
+                  value={getSelectedRoadOverrides().heightScale}
+                  onChange={(e) => updateSelectedRoadOverrides(getSelectedRoadOverrides().widthScale, parseFloat(e.target.value))}
+                  style={{width: '100%'}}
+                />
+              </div>
+            </div>
+          )}
+
           {selection && (
             <div style={{
               position: 'absolute',
