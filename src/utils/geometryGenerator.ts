@@ -706,6 +706,8 @@ export const createWaterGeometries = (
   options: { widthScale?: number } = {}
 ): THREE.Group => {
   const group = new THREE.Group();
+  void waterFeatures;
+  void options;
   
   const gridData = terrainGeometry.userData.grid;
 
@@ -714,27 +716,10 @@ export const createWaterGeometries = (
       return group;
   }
 
-  const { elevations, minX, maxX, minY, maxY, gridX, gridY, hideTerrain } = gridData;
-  const rangeX = maxX - minX;
-  const rangeY = maxY - minY;
-  
-  const getElevation = (x: number, y: number): number | null => {
-      const ix = Math.floor((x - minX) / rangeX * (gridX - 1));
-      const iy = Math.floor((y - minY) / rangeY * (gridY - 1));
-      
-      if (ix >= 0 && ix < gridX && iy >= 0 && iy < gridY) {
-          return elevations[iy * gridX + ix];
-      }
-      return null;
-  };
+  const { elevations } = gridData;
+  void elevations;
 
-  const waterMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x4444ff, 
-    roughness: 0.1, 
-    metalness: 0.5 
-  });
-  
-  waterFeatures.forEach(feature => {
+  waterFeatures.forEach(() => {
     /*
     if (feature.type === 'LineString') {
       // Rivers / Streams
