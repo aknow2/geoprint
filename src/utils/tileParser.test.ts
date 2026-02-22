@@ -5,12 +5,29 @@ import { parseBuildings } from './tileParser';
 vi.mock('@mapbox/vector-tile', () => {
   return {
     VectorTile: class {
-      layers: any;
-      constructor(_pbf: any) {
+      layers: {
+        building: {
+          length: number;
+          feature: () => {
+            id: number;
+            properties: {
+              render_height: number;
+              render_min_height: number;
+            };
+            toGeoJSON: () => {
+              geometry: {
+                type: string;
+                coordinates: number[][][];
+              };
+            };
+          };
+        };
+      };
+      constructor() {
         this.layers = {
           building: {
             length: 1,
-            feature: (_i: number) => ({
+            feature: () => ({
               id: 123,
               properties: {
                 render_height: 20,
