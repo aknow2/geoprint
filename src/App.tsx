@@ -321,7 +321,7 @@ function App() {
                   <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', borderBottom: '1px solid #ddd', paddingBottom: '4px' }}>Terrain</h4>
                   
                   <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '2px' }}>Base Height: {baseHeight}m</label>
-                  <input type="range" min="0" max="20" step="1" value={baseHeight} onChange={(e) => setBaseHeight(Number(e.target.value))} style={{ width: '100%' }} />
+                  <input type="range" min="0" max="100" step="1" value={baseHeight} onChange={(e) => setBaseHeight(Number(e.target.value))} style={{ width: '100%' }} />
                   
                   {!hideTerrain && (
                     <>
