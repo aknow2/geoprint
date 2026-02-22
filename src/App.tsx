@@ -12,6 +12,7 @@ import { exportToSTL } from './utils/stlExporter';
 import * as THREE from 'three';
 
 function App() {
+  const appMainRef = React.useRef<HTMLElement | null>(null);
   const { selection, updateSelection } = useSelection();
   const [terrainGeometry, setTerrainGeometry] = useState<THREE.BufferGeometry | null>(null);
   const [buildingFeatures, setBuildingFeatures] = useState<BuildingFeature[]>([]);
@@ -28,6 +29,8 @@ function App() {
   const [showGpx, setShowGpx] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mapPaneWidth, setMapPaneWidth] = useState(50);
+  const [isResizing, setIsResizing] = useState(false);
   
   // Parameters
   const [baseHeight, setBaseHeight] = useState(2);
@@ -45,11 +48,40 @@ function App() {
   const [hideTerrain, setHideTerrain] = useState(false);
   
   // Selection and Overrides
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+  const [buildingOverrides, setBuildingOverrides] = useState<{[key: string]: { verticalScale: number, horizontalScale: number }}>({});
   const [selectedRoadId, setSelectedRoadId] = useState<string | null>(null);
   const [roadOverrides, setRoadOverrides] = useState<{[key: string]: { widthScale: number, heightScale: number }}>({});
 
   // Cache segments to allow parameter updates without re-fetching
   const [segments, setSegments] = useState<ContourSegment[] | null>(null);
+
+  React.useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!appMainRef.current) return;
+
+      const rect = appMainRef.current.getBoundingClientRect();
+      const relativeX = event.clientX - rect.left;
+      const nextWidth = (relativeX / rect.width) * 100;
+      const clampedWidth = Math.min(80, Math.max(20, nextWidth));
+
+      setMapPaneWidth(clampedWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   // Effect for Terrain
   React.useEffect(() => {
@@ -74,13 +106,14 @@ function App() {
       console.log("Generating building geometries...");
       const group = createBuildingGeometries(buildingFeatures, terrainGeometry, { 
         verticalScale: buildingVerticalScale,
-        horizontalScale: buildingHorizontalScale
+        horizontalScale: buildingHorizontalScale,
+        overrides: buildingOverrides
       });
       setBuildingsGroup(group);
     } else {
       setBuildingsGroup(null);
     }
-  }, [buildingFeatures, terrainGeometry, buildingVerticalScale, buildingHorizontalScale]);
+  }, [buildingFeatures, terrainGeometry, buildingVerticalScale, buildingHorizontalScale, buildingOverrides]);
 
   // Effect for Roads
   React.useEffect(() => {
@@ -122,9 +155,27 @@ function App() {
   const handleObjectSelected = (id: string | null, type: string | null) => {
     if (type === 'road' && id) {
       setSelectedRoadId(id);
+      setSelectedBuildingId(null);
+    } else if (type === 'building' && id) {
+      setSelectedBuildingId(id);
+      setSelectedRoadId(null);
     } else {
+      setSelectedBuildingId(null);
       setSelectedRoadId(null);
     }
+  };
+
+  const getSelectedBuildingOverrides = () => {
+    if (!selectedBuildingId) return { verticalScale: buildingVerticalScale, horizontalScale: buildingHorizontalScale };
+    return buildingOverrides[selectedBuildingId] || { verticalScale: buildingVerticalScale, horizontalScale: buildingHorizontalScale };
+  };
+
+  const updateSelectedBuildingOverrides = (vertical: number, horizontal: number) => {
+    if (!selectedBuildingId) return;
+    setBuildingOverrides(prev => ({
+      ...prev,
+      [selectedBuildingId]: { verticalScale: vertical, horizontalScale: horizontal }
+    }));
   };
 
   const getSelectedRoadOverrides = () => {
@@ -213,16 +264,28 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
+  const handleSplitDragStart = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsResizing(true);
+  };
+
   return (
     <div className="app-container">
       <header className="app-header">
         <h1>GeoPrint: Map to STL</h1>
       </header>
-      <main className="app-main">
-        <div className="map-container">
+      <main ref={appMainRef} className="app-main">
+        <div className="map-container" style={{ flexBasis: `${mapPaneWidth}%` }}>
           <MapSelector onSelectionChange={updateSelection} onGpxLoaded={setGpxTrack} />
         </div>
-        <div className="scene-container">
+        <div
+          className="splitter"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize map and 3D view"
+          onMouseDown={handleSplitDragStart}
+        />
+        <div className="scene-container" style={{ flexBasis: `${100 - mapPaneWidth}%` }}>
           <Scene3D 
             terrainGeometry={terrainGeometry} 
             buildingsGroup={showBuildings ? buildingsGroup : null} 
@@ -232,6 +295,59 @@ function App() {
             onObjectSelected={handleObjectSelected}
           />
           
+          {selectedBuildingId && (
+            <div style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              backgroundColor: 'white',
+              padding: '15px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+              zIndex: 20,
+              width: '250px',
+              color: '#333'
+            }}>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px'}}>
+                <h4 style={{margin: 0}}>Selected Building</h4>
+                <button
+                  onClick={() => setSelectedBuildingId(null)}
+                  style={{border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem'}}
+                >×</button>
+              </div>
+
+              <div style={{marginBottom: '10px'}}>
+                <label style={{display: 'block', fontSize: '0.8rem', marginBottom: '2px'}}>
+                  Vertical Scale: {getSelectedBuildingOverrides().verticalScale.toFixed(1)}x
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="5.0"
+                  step="0.1"
+                  value={getSelectedBuildingOverrides().verticalScale}
+                  onChange={(e) => updateSelectedBuildingOverrides(parseFloat(e.target.value), getSelectedBuildingOverrides().horizontalScale)}
+                  style={{width: '100%'}}
+                />
+              </div>
+
+              <div style={{marginBottom: '10px'}}>
+                <label style={{display: 'block', fontSize: '0.8rem', marginBottom: '2px'}}>
+                  Horizontal Scale: {getSelectedBuildingOverrides().horizontalScale.toFixed(1)}x
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="2.0"
+                  step="0.1"
+                  value={getSelectedBuildingOverrides().horizontalScale}
+                  onChange={(e) => updateSelectedBuildingOverrides(getSelectedBuildingOverrides().verticalScale, parseFloat(e.target.value))}
+                  style={{width: '100%'}}
+                />
+              </div>
+            </div>
+          )}
+
           {selectedRoadId && (
             <div style={{
               position: 'absolute',

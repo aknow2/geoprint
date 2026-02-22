@@ -8,8 +8,14 @@
 .app-header {
   background-color: #282c34;
   color: white;
-  padding: 1rem;
+  padding: 0.35rem;
   text-align: center;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.2;
 }
 
 .app-main {
@@ -19,8 +25,7 @@
 }
 
 .map-container {
-  flex: 1;
-  border-right: 1px solid #ccc;
+  flex: 0 0 auto;
   position: relative;
   display: flex;
   justify-content: center;
@@ -28,8 +33,19 @@
   background-color: #f0f0f0;
 }
 
+.splitter {
+  width: 8px;
+  cursor: col-resize;
+  background-color: #d0d0d0;
+  flex: 0 0 auto;
+}
+
+.splitter:hover {
+  background-color: #bdbdbd;
+}
+
 .scene-container {
-  flex: 1;
+  flex: 0 0 auto;
   position: relative;
   display: flex;
   justify-content: center;
@@ -49,9 +65,14 @@
   .app-main {
     flex-direction: column;
   }
+
+  .splitter {
+    display: none;
+  }
   
   .map-container, .scene-container {
     flex: 1;
+    flex-basis: auto !important;
     min-height: 50vh;
   }
 }
