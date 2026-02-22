@@ -423,7 +423,11 @@ export const generateTerrainGeometry = (
 export const createBuildingGeometries = (
   buildings: BuildingFeature[], 
   terrainGeometry: THREE.BufferGeometry,
-  options: { verticalScale?: number; horizontalScale?: number } = {}
+  options: {
+    verticalScale?: number;
+    horizontalScale?: number;
+    overrides?: {[key: string]: { verticalScale: number, horizontalScale: number }};
+  } = {}
 ): THREE.Group => {
   const group = new THREE.Group();
   const gridData = terrainGeometry.userData.grid;
@@ -437,20 +441,25 @@ export const createBuildingGeometries = (
   const rangeX = maxX - minX;
   const rangeY = maxY - minY;
 
-  // Use provided vertical scale or fallback to terrain's scale
-  const buildingVerticalScale = options.verticalScale !== undefined ? options.verticalScale : terrainVerticalScale;
-  const buildingHorizontalScale = options.horizontalScale !== undefined ? options.horizontalScale : 1.0;
+    const globalVerticalScale = options.verticalScale !== undefined ? options.verticalScale : terrainVerticalScale;
+    const globalHorizontalScale = options.horizontalScale !== undefined ? options.horizontalScale : 1.0;
+    const overrides = options.overrides || {};
 
-  console.log(`Generating geometry for ${buildings.length} buildings. V-Scale: ${buildingVerticalScale}, H-Scale: ${buildingHorizontalScale}`);
+    console.log(`Generating geometry for ${buildings.length} buildings. Global V-Scale: ${globalVerticalScale}, Global H-Scale: ${globalHorizontalScale}`);
   let placedCount = 0;
 
-  buildings.forEach(building => {
+    buildings.forEach(building => {
       const polygons = building.geometry.type === 'MultiPolygon' 
           ? building.geometry.coordinates 
           : [building.geometry.coordinates];
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      polygons.forEach((polygonCoords: any) => {
+      polygons.forEach((polygonCoords: any, polygonIndex: number) => {
+        const overrideKey = `${building.id}:${polygonIndex}`;
+        const override = overrides[overrideKey];
+        const buildingVerticalScale = override?.verticalScale ?? globalVerticalScale;
+        const buildingHorizontalScale = override?.horizontalScale ?? globalHorizontalScale;
+
           const outerRing = polygonCoords[0];
           if (!outerRing || outerRing.length < 3) return;
 
@@ -562,7 +571,9 @@ export const createBuildingGeometries = (
           
           // Add metadata
           mesh.userData = {
-              featureId: building.id,
+              type: 'building',
+              featureId: overrideKey,
+              buildingId: building.id,
               height: building.height
           };
 
@@ -706,6 +717,8 @@ export const createWaterGeometries = (
   options: { widthScale?: number } = {}
 ): THREE.Group => {
   const group = new THREE.Group();
+  void waterFeatures;
+  void options;
   
   const gridData = terrainGeometry.userData.grid;
 
@@ -714,27 +727,10 @@ export const createWaterGeometries = (
       return group;
   }
 
-  const { elevations, minX, maxX, minY, maxY, gridX, gridY, hideTerrain } = gridData;
-  const rangeX = maxX - minX;
-  const rangeY = maxY - minY;
-  
-  const getElevation = (x: number, y: number): number | null => {
-      const ix = Math.floor((x - minX) / rangeX * (gridX - 1));
-      const iy = Math.floor((y - minY) / rangeY * (gridY - 1));
-      
-      if (ix >= 0 && ix < gridX && iy >= 0 && iy < gridY) {
-          return elevations[iy * gridX + ix];
-      }
-      return null;
-  };
+  const { elevations } = gridData;
+  void elevations;
 
-  const waterMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x4444ff, 
-    roughness: 0.1, 
-    metalness: 0.5 
-  });
-  
-  waterFeatures.forEach(feature => {
+  waterFeatures.forEach(() => {
     /*
     if (feature.type === 'LineString') {
       // Rivers / Streams

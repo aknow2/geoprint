@@ -105,6 +105,11 @@ const Scene3D: React.FC<Scene3DProps> = ({
     };
     window.addEventListener('resize', handleResize);
 
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize();
+    });
+    resizeObserver.observe(mountRef.current);
+
     // Interaction
     let downTime = 0;
     const downPos = new THREE.Vector2();
@@ -217,6 +222,7 @@ const Scene3D: React.FC<Scene3DProps> = ({
     // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       window.removeEventListener('keydown', handleKeyDown);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
