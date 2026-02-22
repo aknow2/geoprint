@@ -131,7 +131,7 @@ export const parseBuildings = (tiles: TileData[], center: {lat: number, lng: num
       }
 
       buildings.push({
-        id: (feature.id || `${tile.x}-${tile.y}-${i}`).toString(),
+        id: crypto.randomUUID(),
         geometry: geometry,
         height,
         minHeight,
@@ -185,7 +185,7 @@ export const parseRoads = (tiles: TileData[], center: {lat: number, lng: number}
       }
 
       roads.push({
-        id: (feature.id || `${tile.x}-${tile.y}-${i}`).toString(),
+        id: crypto.randomUUID(),
         geometry: geometry,
         class: roadClass,
         name: props.name as string
@@ -232,7 +232,7 @@ export const parseWaterFeatures = (tiles: TileData[], center: {lat: number, lng:
         }
 
         waterFeatures.push({
-          id: (feature.id || `water-${tile.x}-${tile.y}-${i}`).toString(),
+          id: crypto.randomUUID(),
           type: 'Polygon',
           geometry: geometry,
           class: (props.class as string) || 'water',
@@ -264,7 +264,7 @@ export const parseWaterFeatures = (tiles: TileData[], center: {lat: number, lng:
         }
 
         waterFeatures.push({
-          id: (feature.id || `waterway-${tile.x}-${tile.y}-${i}`).toString(),
+          id: crypto.randomUUID(),
           type: 'LineString',
           geometry: geometry,
           class: (props.class as string) || 'stream',
